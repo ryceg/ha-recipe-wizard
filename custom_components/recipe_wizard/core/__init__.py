@@ -9,7 +9,7 @@ from .compare import Comparison, compare
 from .dish import Dish, resolve_dish
 from .importer import import_page, import_url
 from .library import Food, FoodBank, Library, LibraryError
-from .mass import ingredient_mass
+from .mass import MassResult, MassTable, ingredient_mass, mass_table
 from .model import (
     Adjustment,
     BatchPolicy,
@@ -53,6 +53,8 @@ __all__ = [
     "Ingredient",
     "Library",
     "LibraryError",
+    "MassResult",
+    "MassTable",
     "Plan",
     "Portion",
     "Quantity",
@@ -73,6 +75,7 @@ __all__ = [
     "import_url",
     "ingredient_mass",
     "ingredients_for_step",
+    "mass_table",
     "materialise",
     "render_table",
     "resolve",

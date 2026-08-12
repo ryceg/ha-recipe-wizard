@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from .adjust import AdjustmentError
 from .library import Library, LibraryError
-from .mass import ingredient_mass
+from .mass import FORM_UNKNOWN, mass_table
 from .model import Recipe
 from .resolve import (
     BatchConstraintError,
@@ -45,6 +45,12 @@ PORTION_TOLERANCE = 0.1
 
 #: An ingredient below this share of the batch is too small for a density
 #: quibble to matter. Findings should be proportional to their consequence.
+#:
+#: "The batch" is the resolver's non-optional input total and nothing else.
+#: This used to be measured against a local sum that counted the optional milk
+#: and ignored the mass loss factor, so the denominator was a quantity no other
+#: part of the system called a yield, and a threshold tuned against it was
+#: tuned against a number that did not mean anything.
 NEGLIGIBLE_SHARE = 0.01
 
 
@@ -91,20 +97,11 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
 
     # -- Level 1: quantities exist --------------------------------------
     if level >= 1:
-        masses = {}
-        for ing in recipe.ingredients:
-            result = ingredient_mass(
-                ing, library.foods, recipe.measurement_system,
-                canonical=recipe.canonical_unit_system,
-            )
-            masses[ing.id] = result.grams or 0.0
-        batch = sum(masses.values())
+        masses = mass_table(recipe, library.foods)
+        batch = masses.input_total_g
 
         for ing in recipe.ingredients:
-            result = ingredient_mass(
-                ing, library.foods, recipe.measurement_system,
-                canonical=recipe.canonical_unit_system,
-            )
+            result = masses.result(ing.id)
             for warning in result.warnings:
                 if "disagree" in warning:
                     add(WARNING, "unit-divergence", warning)
@@ -115,13 +112,16 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
             # part of the batch. Nobody weighs 1 1/4 tsp of cumin, and being
             # 30% out on 2.6 g of a 900 g curry changes nothing -- reporting it
             # buries the findings that do matter.
-            share = masses[ing.id] / batch if batch else 0.0
+            share = (result.grams or 0.0) / batch if batch else 0.0
             if share < NEGLIGIBLE_SHARE:
                 continue
 
+            # Why the mass is doubtful was decided when it was computed. Asking
+            # the result beats re-fetching the Food and re-reading
+            # form_sensitive off it, which is how this block came to hold a
+            # second, drifting copy of mass.py's reasoning.
             if result.confidence == "low" and result.source == "volume":
-                food = library.foods.get(ing.food.id if ing.food else None)
-                if food and food.form_sensitive and ing.form is None:
+                if result.reason == FORM_UNKNOWN:
                     add(INFO, "missing-form",
                         f"{ing.name!r} is measured by volume and its density "
                         "depends on the cut or pack; give rw:form or a mass")

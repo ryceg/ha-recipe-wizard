@@ -199,6 +199,77 @@ def test_form_sensitive_foods_ask_for_a_form(library):
     assert any(f.code == "missing-form" for f in findings)
 
 
+# ---------------------------------------------------------------------------
+# One definition of the batch
+# ---------------------------------------------------------------------------
+
+
+def test_a_density_finding_is_weighed_against_the_non_optional_batch():
+    """The share was measured against a total nothing else called a yield.
+
+    The denominator used to be a local sum of *every* line, so a document
+    carrying a substantial optional element -- the buttercream's milk, a curry's
+    optional cream -- diluted every other line's share and could push a real
+    finding under the negligible threshold. The 4.5 g of cayenne below is 0.89%
+    of all the lines together and 1.27% of the batch it is actually seasoning;
+    only the second number is the one the resolver would call the yield, and
+    only the second number reports it.
+    """
+    recipe = build_recipe(ingredients=[
+        ingredient("beef mince", mass=350),
+        ingredient("cayenne pepper", volume=(2, "tsp"),
+                   food="food:cayenne-ground"),
+        ingredient("cream", mass=150, optional=True),
+    ])
+    findings = validate_recipe(recipe, build_library(recipe))
+
+    assert [f.code for f in findings if f.code == "low-confidence-density"] == [
+        "low-confidence-density"
+    ], "1.27% of the batch it seasons is not negligible"
+
+
+def test_a_quibble_over_a_trace_ingredient_is_still_suppressed():
+    """The other half of the rule, which the new denominator must not break.
+
+    Nobody weighs 1 1/4 tsp of cumin. Being 30% out on 2.8 g of a 900 g curry
+    changes nothing, and reporting it buries the findings that do matter --
+    which is the whole reason the threshold exists.
+    """
+    recipe = build_recipe(ingredients=[
+        ingredient("beef mince", mass=900),
+        ingredient("cumin powder", volume=(1.25, "tsp"),
+                   food="food:cumin-ground"),
+    ])
+    findings = validate_recipe(recipe, build_library(recipe))
+
+    assert not any(f.code == "low-confidence-density" for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# The validator asks mass.py why, rather than working it out again
+# ---------------------------------------------------------------------------
+
+
+def test_a_line_that_already_names_its_form_is_not_asked_for_one():
+    """The qeema's ginger, which states rw:form and still has a shaky density.
+
+    Both findings come from one low-confidence volume conversion, and which of
+    them fires used to be decided here by re-fetching the Food and re-reading
+    ``form_sensitive`` off it -- a second copy of a decision ``mass.py`` had
+    already made, free to drift from it. Telling an author to give ``rw:form``
+    when the document gives one sends them at the wrong thing.
+    """
+    def codes(**extra):
+        recipe = build_recipe(ingredients=[
+            ingredient("ginger", volume=(4, "tsp"), food="food:ginger", **extra),
+        ])
+        return {f.code for f in validate_recipe(recipe, build_library(recipe))}
+
+    assert "missing-form" in codes()
+    assert "low-confidence-density" in codes(form="minced")
+    assert "missing-form" not in codes(form="minced")
+
+
 def test_quality_windows_are_separate_from_keeps(library, cake):
     """The streusel case: safe for longer than it is good for."""
     room = next(s for s in cake.storage if s.method == "room-temperature")

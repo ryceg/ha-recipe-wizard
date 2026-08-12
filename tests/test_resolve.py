@@ -294,6 +294,74 @@ def test_absolute_portions_scale(library):
     assert after.portion_of("#peanut-butter").quantity.value == 4
 
 
+# ---------------------------------------------------------------------------
+# Each line's mass, computed once
+# ---------------------------------------------------------------------------
+
+
+def test_a_line_is_reduced_to_grams_once_per_resolution(monkeypatch):
+    """The resolver used to reduce every line twice over.
+
+    ``batch_yield_grams`` computed the masses and flattened them to a
+    ``dict[str, float | None]``, which lost each line's source, confidence and
+    warnings -- so the loop building the resolved ingredients called
+    ``ingredient_mass`` a second time on the same line just to read
+    ``.confidence`` back, and had to discard that call's warnings to avoid
+    reporting the chocolate buttercream's butter divergence twice.
+    """
+    recipe = build_recipe(ingredients=[
+        ingredient("flour", mass=250),
+        ingredient("butter", mass=200),
+        ingredient("milk", volume=(1, "cup"), food="food:milk-full-fat"),
+    ])
+    library = build_library(recipe)
+
+    from custom_components.recipe_wizard.core import mass as mass_module
+
+    calls: list[str] = []
+    real = mass_module.ingredient_mass
+
+    def counting(ing, *args, **kwargs):
+        calls.append(ing.id)
+        return real(ing, *args, **kwargs)
+
+    monkeypatch.setattr(mass_module, "ingredient_mass", counting)
+    resolve(library, recipe.id)
+
+    assert sorted(calls) == ["#butter", "#flour", "#milk"], (
+        f"three lines, {len(calls)} conversions: every one of them has to go "
+        "through the table, and exactly once"
+    )
+
+
+def test_preparation_survives_into_the_resolved_line():
+    """The shopping list merges on rw:food and deliberately not on preparation.
+
+    Melted butter and softened butter are one thing to buy and two things to
+    have ready, so a merged row has to be able to name the preparations it
+    swallowed. ``Ingredient.preparation`` existed in the model and stopped at
+    the resolver, which left the roll-up nothing to show under the merged line.
+    """
+    recipe = build_recipe(ingredients=[
+        ingredient("butter", id="#butter-melted", mass=100,
+                   food="food:butter-unsalted", preparation="melted"),
+        ingredient("butter", id="#butter-softened", mass=150,
+                   food="food:butter-unsalted", preparation="softened"),
+    ])
+    result = resolve(build_library(recipe), recipe.id)
+
+    melted = _ingredient(result, "#butter-melted")
+    softened = _ingredient(result, "#butter-softened")
+    assert melted.food_id == softened.food_id, "the premise: one shopping line"
+    assert (melted.preparation, softened.preparation) == ("melted", "softened")
+
+
+def test_a_line_with_no_preparation_says_none_rather_than_inventing_one(library):
+    result = resolve(library, VANILLA_BC)
+    assert _ingredient(result, "#icing-sugar").preparation == "sifted"
+    assert _ingredient(result, "#butter").preparation is None
+
+
 def test_source_columns_that_disagree_are_reported_not_resolved(library):
     """200 g in the metric column, 3/4 cup (171 g) in the cups column."""
     result = resolve(library, CHOCOLATE_BC)
