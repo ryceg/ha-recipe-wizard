@@ -2,6 +2,7 @@
 
 import pytest
 from conftest import COFFEE_BC
+from support import build_recipe, ingredient, step
 
 from custom_components.recipe_wizard.core import check_plan, rigid_chains, schedule
 from custom_components.recipe_wizard.core.graph import recipe_graph
@@ -10,6 +11,7 @@ from custom_components.recipe_wizard.core.schedule import (
     dependencies,
     topological_order,
 )
+from custom_components.recipe_wizard.core.validate import ERROR
 
 
 def _starts(plan):
@@ -61,7 +63,7 @@ def test_the_plan_is_self_consistent(cake, brownies):
     for recipe in (cake, brownies):
         plan = schedule(recipe)
         assert check_plan(recipe, _starts(plan)) == []
-        assert not plan.warnings
+        assert not plan.findings
 
 
 def test_prep_is_scheduled_when_it_is_needed_not_as_early_as_possible(brownies):
@@ -122,9 +124,10 @@ def test_making_the_batter_an_hour_ahead_is_rejected(cake):
                     "#cool-out", "#assemble"):
         starts[step_id] += 3600
 
-    violations = check_plan(cake, starts)
-    delay = next(v for v in violations if v.kind == "max-delay")
-    assert delay.step_id == "#pour-pans"
+    findings = check_plan(cake, starts)
+    delay = next(f for f in findings if f.code == "schedule-max-delay")
+    assert delay.node == "#pour-pans"
+    assert delay.recipe == cake.id
     assert "air bubbles subside" in delay.message
 
 
@@ -145,9 +148,9 @@ def test_cutting_early_is_rejected_with_its_reason(brownies):
     starts = _starts(plan)
     starts["#cut"] -= 2 * 3600
 
-    violations = check_plan(brownies, starts)
-    early = next(v for v in violations if v.kind == "min-delay")
-    assert early.step_id == "#cut"
+    findings = check_plan(brownies, starts)
+    early = next(f for f in findings if f.code == "schedule-min-delay")
+    assert early.node == "#cut"
     assert "peanut butter oozes" in early.message
 
 
@@ -162,6 +165,62 @@ def test_minimum_delays_stretch_the_total_time(brownies):
     plan = schedule(brownies)
     assert plan.total_s == pytest.approx(7 * 3600, abs=15 * 60)
     assert plan.active_s < 20 * 60
+
+
+# ---------------------------------------------------------------------------
+# A scheduling defect is a finding, in the report's one shape
+# ---------------------------------------------------------------------------
+
+
+def test_a_lead_before_naming_no_step_is_reported_as_a_finding():
+    """It used to be a bare string on ``Plan.warnings``.
+
+    So the constraint was silently dropped -- the exact failure ``leadBefore``
+    exists to prevent -- and the only record of it was a sentence in a list that
+    nothing counted, nothing gave a severity, and ``--validate`` never saw.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces=("#batter", "Batter")),
+            step("#bake", consumes=["#batter"], produces=("#loaf", "Loaf"),
+                 lead_before=[("#preheat", "PT20M", "the oven must be at 180C")]),
+        ],
+    )
+    plan = schedule(recipe)
+
+    finding = next(f for f in plan.findings
+                   if f.code == "schedule-unknown-lead")
+    assert finding.level == ERROR
+    assert finding.node == "#bake", "the step carrying the bad rw:leadBefore"
+    assert "#preheat" in finding.message, "quoted as the author wrote it"
+
+
+def test_contradictory_constraints_name_the_step_they_broke_at():
+    """"Did not settle" says a plan is wrong without saying where.
+
+    A three-hour floor and a back-to-back ceiling on the same edge cannot both
+    hold, and the planner can only report that it gave up. Checking the plan it
+    gave up on is what turns that into a node: the pair is unknowable, the step
+    whose start time ends up wrong is not.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces=("#batter", "Batter")),
+            step("#bake", consumes=["#batter"], produces=("#loaf", "Loaf"),
+                 min_delay_after=[("#mix", "PT1H", "it has to prove")],
+                 max_delay_after=[("#mix", "PT0S", "the bubbles subside")]),
+        ],
+    )
+    plan = schedule(recipe)
+
+    unsettled = next(f for f in plan.findings if f.code == "schedule-unsettled")
+    assert unsettled.node is None, "the defect is a pair of constraints, not a step"
+
+    broken = check_plan(recipe, {s.step_id: s.start_s for s in plan.steps})
+    assert [f.node for f in broken] == ["#bake"]
+    assert [f.code for f in broken] == ["schedule-max-delay"]
 
 
 # ---------------------------------------------------------------------------

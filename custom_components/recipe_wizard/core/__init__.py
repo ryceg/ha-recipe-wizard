@@ -47,7 +47,7 @@ from .resolve import (
 )
 from .schedule import Plan, check_plan, rigid_chains, schedule
 from .units import Quantity, UnitError
-from .validate import Finding, validate_library, validate_recipe
+from .validate import Finding, validate_library, validate_recipe, worst_level
 
 __all__ = [
     "Adjustment",
@@ -111,4 +111,5 @@ __all__ = [
     "validate_library",
     "validate_recipe",
     "vessel_warnings",
+    "worst_level",
 ]

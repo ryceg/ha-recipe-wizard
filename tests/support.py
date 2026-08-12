@@ -339,6 +339,24 @@ def step(
     return node
 
 
+def insert_step(new_step: Mapping, *, after: str | None = None) -> dict:
+    """An ``rw:InsertStep`` patch operation, for ``adjustments=``.
+
+    The one operation whose effect is on the rest of the document: it renumbers
+    every ``rw:position`` after the anchor, which is exactly why
+    ``docs/format.md`` Principle 5 forbids ``#step-3``. A test whose subject is
+    what survives that -- a validator finding still naming the node it named
+    before the insert -- has to be able to write the patch without hand-authoring
+    JSON-LD, which is where the premise stops being visible.
+
+    ``after`` names the step to insert below; left out, the step goes last.
+    """
+    node: dict[str, Any] = {"@type": "rw:InsertStep", "rw:step": dict(new_step)}
+    if after is not None:
+        node["rw:after"] = {"@id": after}
+    return node
+
+
 def component(
     label: str,
     *,
