@@ -1,4 +1,4 @@
-"""The resolver: base + variants + parameters + patches + scale -> real numbers.
+"""The resolver: base + variants + patches + scale -> real numbers.
 
 Order matters, and getting it wrong is silent rather than loud. Adjustments are
 expressed at *base yield*, so they are applied before scaling. Apply them the
@@ -7,15 +7,14 @@ once the batch is scaled down, with nothing to indicate anything went wrong.
 
     1. load base
     2. apply the variant chain, base-first
-    3. apply parameter selections
-    4. apply the parent's local adjustments
-    5. compute batch yield
-    6. compute the required amount (mass, or coverage resolved against yield)
-    7. raw scale factor = required / yield
-    8. apply the batch policy (discrete rounding, whole batches)
-    9. check batch constraints
-   10. scale, honouring each ingredient's own scaling mode
-   11. report what is actually produced, and the leftover
+    3. apply the parent's local adjustments
+    4. compute batch yield
+    5. compute the required amount (mass, or coverage resolved against yield)
+    6. raw scale factor = required / yield
+    7. apply the batch policy (discrete rounding, whole batches)
+    8. check batch constraints
+    9. scale, honouring each ingredient's own scaling mode
+   10. report what is actually produced, and the leftover
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from .adjust import apply_adjustments, apply_parameters
+from .adjust import apply_adjustments
 from .library import Library
 from .mass import ingredient_mass
 from .model import (
@@ -155,8 +154,6 @@ def _merge_variant_metadata(base: Recipe, variant: Recipe) -> None:
         base.storage = variant.storage
     if variant.batch_constraints.min_yield_g is not None:
         base.batch_constraints = variant.batch_constraints
-    if variant.parameters:
-        base.parameters = variant.parameters
     if variant.notes:
         base.notes = [*base.notes, *variant.notes]
 
@@ -165,10 +162,9 @@ def materialise(
     library: Library,
     recipe_id: str,
     *,
-    parameters: dict[str, str] | None = None,
     adjustments: list[Adjustment] | None = None,
 ) -> tuple[Recipe, list[str]]:
-    """Steps 1-4: everything that happens at base yield, before scaling."""
+    """Steps 1-3: everything that happens at base yield, before scaling."""
     chain = library.variant_chain(recipe_id)
     recipe = chain[0].copy()
     log: list[str] = []
@@ -178,9 +174,6 @@ def materialise(
         _merge_variant_metadata(recipe, variant)
         log.append(f"variant: {variant.name}")
         log.extend(f"  {entry}" for entry in sub_log)
-
-    recipe, param_log = apply_parameters(recipe, parameters or {})
-    log.extend(param_log)
 
     if adjustments:
         recipe, local_log = apply_adjustments(recipe, adjustments)
@@ -193,7 +186,7 @@ def materialise(
 def batch_yield_grams(
     recipe: Recipe, library: Library
 ) -> tuple[float | None, list[str], dict[str, float | None]]:
-    """Step 5. Returns the yield, any warnings, and each ingredient's mass.
+    """Step 4. Returns the yield, any warnings, and each ingredient's mass.
 
     ``sumOfInputs`` is exact for anything uncooked and close enough elsewhere
     with a loss factor: Modernist's carrot soup sums to 1325.5 g against a
@@ -242,7 +235,7 @@ def _apply_batch_policy(
     raw_scale: float,
     masses: dict[str, float | None],
 ) -> tuple[float, list[str]]:
-    """Step 8. Reconcile a fractional scale with things that come in whole units."""
+    """Step 7. Reconcile a fractional scale with things that come in whole units."""
     warnings: list[str] = []
     if policy.mode in ("scale", None):
         return raw_scale, warnings
@@ -317,7 +310,6 @@ def resolve(
     requires_batches: float = 1.0,
     batch_policy: BatchPolicy | None = None,
     adjustments: list[Adjustment] | None = None,
-    parameters: dict[str, str] | None = None,
     label: str | None = None,
     strict: bool = True,
 ) -> Resolution:
@@ -327,12 +319,10 @@ def resolve(
     actually ask for -- doubling a cake doubles its frosting, and that
     propagates as a plain factor with no geometry involved.
     """
-    recipe, change_log = materialise(
-        library, recipe_id, parameters=parameters, adjustments=adjustments
-    )
+    recipe, change_log = materialise(library, recipe_id, adjustments=adjustments)
     batch_yield, warnings, masses = batch_yield_grams(recipe, library)
 
-    # Steps 6 and 7: what does the caller need, and what factor is that?
+    # Steps 5 and 6: what does the caller need, and what factor is that?
     requested_g: float | None = None
     if requires_mass is not None:
         from .units import to_grams
@@ -344,12 +334,12 @@ def resolve(
         if batch_yield is not None:
             requested_g = batch_yield * requires_batches
 
-    # Step 8
+    # Step 7
     policy = batch_policy or BatchPolicy()
     scale, policy_warnings = _apply_batch_policy(recipe, policy, raw_scale, masses)
     warnings.extend(policy_warnings)
 
-    # Steps 10-11: scale, then recompute what is actually produced. Recomputing
+    # Steps 9-10: scale, then recompute what is actually produced. Recomputing
     # matters because 'fixed' ingredients do not scale, so the yield is not
     # linear in the scale factor.
     resolved: list[ResolvedIngredient] = []
@@ -382,7 +372,7 @@ def resolve(
         )
     produced_g = produced * (1 - recipe.mass_loss_factor) if produced else None
 
-    # Step 9, deferred to here so the message can quote the real produced mass.
+    # Step 8, deferred to here so the message can quote the real produced mass.
     limits = recipe.batch_constraints
     if produced_g is not None and limits.min_yield_g and produced_g < limits.min_yield_g:
         message = (
@@ -500,7 +490,6 @@ def resolve_component(
         requires_batches=use.requires_batches,
         batch_policy=use.batch_policy,
         adjustments=use.adjustments,
-        parameters=use.parameters,
         label=use.label,
         strict=strict,
     )

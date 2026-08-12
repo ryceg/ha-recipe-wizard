@@ -258,10 +258,20 @@ still reports the conflict.
 Adjustments are expressed at **base yield** and applied before scaling. Reverse
 this and a parent's "make the sugar 180 g" override silently becomes wrong.
 
-1. Load base → 2. variant chain → 3. parameters → 4. local adjustments →
-5. batch yield → 6. required amount → 7. raw scale → 8. batch policy →
-9. constraints → 10. scale, honouring each ingredient's `rw:scaling` →
-11. recompute what is produced, and the leftover.
+1. Load base → 2. variant chain → 3. local adjustments → 4. batch yield →
+5. required amount → 6. raw scale → 7. batch policy → 8. constraints →
+9. scale, honouring each ingredient's `rw:scaling` → 10. recompute what is
+produced, and the leftover.
+
+**Cut: recipe parameters.** `rw:parameters` was a designed axis of variation —
+the author naming a choice ("sweetness", "heat") and the options they were
+willing to sanction, each option a bundle of patch operations, selectable by a
+parent through `rw:parameterSelections` on its component use. It cost a model
+class, a resolver step, an option-lookup branch in `adjust.py` and a field on
+three other classes. Not one of the nine recipes ever declared a parameter, so
+the step ran on an empty list every time it ran at all, and the branch that
+resolved a selection to an option never executed once. Where an author really
+does sanction a choice, it is already a variant or a sibling.
 
 ## Validation
 

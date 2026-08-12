@@ -12,7 +12,7 @@ quietly at dinner time.
 
 from __future__ import annotations
 
-from .model import Adjustment, Ingredient, Recipe, Step, _as_list, _get
+from .model import Adjustment, Ingredient, Recipe, Step, _get
 from .units import Quantity
 
 
@@ -163,35 +163,3 @@ def _renumber(recipe: Recipe) -> None:
     """Recompute display positions. Ids are stable; positions never are."""
     for index, step in enumerate(recipe.steps, start=1):
         step.position = index
-
-
-def apply_parameters(
-    recipe: Recipe, selections: dict[str, str]
-) -> tuple[Recipe, list[str]]:
-    """Apply parameter selections, which are themselves expressed as patches.
-
-    Parameters cover variation the base author anticipated; patches cover the
-    rest. Both end up here because an option is just a bundle of operations.
-    """
-    result = recipe
-    log: list[str] = []
-    for param in recipe.parameters:
-        chosen = selections.get(param.id) or selections.get(param.name) or param.default
-        if chosen is None:
-            continue
-        option = None
-        for candidate in param.options:
-            if candidate.get("@id") == chosen or candidate.get("name") == chosen:
-                option = candidate
-                break
-        if option is None:
-            available = [c.get("@id") or c.get("name") for c in param.options]
-            raise AdjustmentError(
-                f"parameter {param.name!r} has no option {chosen!r} "
-                f"(available: {', '.join(str(a) for a in available)})"
-            )
-        ops = [Adjustment.parse(a) for a in _as_list(_get(option, "apply"))]
-        result, sub_log = apply_adjustments(result, ops)
-        log.append(f"{param.name} = {option.get('name', chosen)}")
-        log.extend(f"  {entry}" for entry in sub_log)
-    return result, log

@@ -52,10 +52,6 @@ class Duration:
     def __str__(self) -> str:
         return self.text
 
-    @property
-    def minutes(self) -> float:
-        return self.seconds / 60
-
     def human(self) -> str:
         """A short human rendering, chosen by magnitude."""
         s = self.seconds
@@ -101,24 +97,3 @@ def parse_duration(text: str | None) -> Duration | None:
             nominal = True
         total += float(value) * _NOMINAL_SECONDS[key]
     return Duration(total, raw, nominal)
-
-
-def format_duration(seconds: float) -> str:
-    """Render seconds back to an ISO 8601 duration string."""
-    if seconds <= 0:
-        return "PT0S"
-    days, rem = divmod(int(round(seconds)), 86400)
-    hours, rem = divmod(rem, 3600)
-    minutes, secs = divmod(rem, 60)
-    out = "P"
-    if days:
-        out += f"{days}D"
-    if hours or minutes or secs:
-        out += "T"
-        if hours:
-            out += f"{hours}H"
-        if minutes:
-            out += f"{minutes}M"
-        if secs:
-            out += f"{secs}S"
-    return out

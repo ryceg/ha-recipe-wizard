@@ -317,10 +317,3 @@ def validate_library(library: Library) -> list[Finding]:
                 "variant chains deeper than one level make patch order hard to "
                 "reason about: " + " -> ".join(r.id for r in chain)))
     return findings
-
-
-def worst_level(findings: list[Finding]) -> str | None:
-    for severity in (ERROR, WARNING, INFO):
-        if any(f.level == severity for f in findings):
-            return severity
-    return None

@@ -40,8 +40,6 @@ _VOLUME_ML: dict[str, dict[str, float]] = {
 #: Volume units that mean the same thing everywhere.
 _VOLUME_ML_UNIVERSAL: dict[str, float] = {"ml": 1.0, "l": 1000.0}
 
-_LENGTH_CM: dict[str, float] = {"cm": 1.0, "mm": 0.1, "in": 2.54}
-
 _COUNT_UNITS = {"", "each", "ea", "unit", "units", "whole", "large", "medium",
                 "small", "clove", "cloves", "sprig", "sprigs"}
 
@@ -130,10 +128,6 @@ class Quantity:
     def dimension(self) -> Dimension:
         return dimension_of(self.unit)
 
-    @property
-    def is_range(self) -> bool:
-        return self.max_value is not None
-
     def scaled(self, factor: float) -> "Quantity":
         """Multiply the value, dropping ``display`` since it no longer holds."""
         return Quantity(
@@ -188,14 +182,6 @@ def to_millilitres(qty: Quantity, system: MeasurementSystem) -> float:
     raise UnitError(f"{unit!r} is not a volume unit in the {system} system")
 
 
-def to_centimetres(qty: Quantity) -> float:
-    """Convert a length quantity to centimetres."""
-    unit = qty.unit
-    if unit not in _LENGTH_CM:
-        raise UnitError(f"{unit!r} is not a length unit")
-    return qty.value * _LENGTH_CM[unit]
-
-
 def to_grams(
     qty: Quantity,
     *,
@@ -223,11 +209,6 @@ def to_grams(
             f"cannot convert count {qty} to grams without a per-unit mass"
         )
     return qty.value * unit_mass_g
-
-
-def grams(value: float) -> Quantity:
-    """Shorthand for a mass quantity in grams."""
-    return Quantity(value, "g")
 
 
 def relative_difference(a: float, b: float) -> float:

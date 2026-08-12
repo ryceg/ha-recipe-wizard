@@ -325,27 +325,6 @@ class DelayConstraint:
         return cls(from_step, limit, kind, _get(node, "reason"))
 
 
-@dataclass(slots=True)
-class Parameter:
-    """A designed axis of variation, with the options its author sanctioned."""
-
-    id: str
-    name: str
-    target: str | None = None
-    default: str | None = None
-    options: list[dict] = field(default_factory=list)
-
-    @classmethod
-    def parse(cls, node: dict) -> "Parameter":
-        return cls(
-            id=node.get("@id", ""),
-            name=_get(node, "name", default=""),
-            target=_ref(_get(node, "target")),
-            default=_ref(_get(node, "default")),
-            options=_as_list(_get(node, "options")),
-        )
-
-
 # --------------------------------------------------------------------------
 # Ingredients, steps, components
 # --------------------------------------------------------------------------
@@ -466,7 +445,6 @@ class Step:
     lead_before: dict[str, Duration] = field(default_factory=dict)
     """Steps that must *start* this long before this one, keyed by step id."""
     tools: list[str] = field(default_factory=list)
-    parameters: list[dict] = field(default_factory=list)
     vessel_options: list[VesselOption] = field(default_factory=list)
     timer_starts_when: str | None = None
     safety_note: str | None = None
@@ -520,7 +498,6 @@ class Step:
             ],
             lead_before=lead,
             tools=_refs(node.get("tool")),
-            parameters=_as_list(_get(node, "parameters")),
             vessel_options=[
                 VesselOption.parse(v) for v in _as_list(_get(node, "bakeTimeByVessel"))
             ],
@@ -613,7 +590,6 @@ class ComponentUse:
     cake's glaze and the qeema's mint yogurt are both take-it-or-leave-it."""
     make_ahead: MakeAhead | None = None
     adjustments: list[Adjustment] = field(default_factory=list)
-    parameters: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def parse(cls, node: dict) -> "ComponentUse":
@@ -642,7 +618,6 @@ class ComponentUse:
             adjustments=[
                 Adjustment.parse(a) for a in _as_list(_get(node, "adjustments"))
             ],
-            parameters=dict(_get(node, "parameterSelections", default={}) or {}),
         )
 
 
@@ -688,7 +663,6 @@ class Recipe:
     ingredients: list[Ingredient] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
     components: list[ComponentUse] = field(default_factory=list)
-    parameters: list[Parameter] = field(default_factory=list)
     adjustments: list[Adjustment] = field(default_factory=list)
     storage: list[Storage] = field(default_factory=list)
     storage_overrides_components: bool = False
@@ -756,7 +730,6 @@ class Recipe:
             ingredients=ingredients,
             steps=steps,
             components=[ComponentUse.parse(c) for c in _as_list(_get(node, "components"))],
-            parameters=[Parameter.parse(p) for p in _as_list(_get(node, "parameters"))],
             adjustments=[Adjustment.parse(a) for a in _as_list(_get(node, "adjustments"))],
             storage=[Storage.parse(s) for s in _as_list(_get(node, "storage"))],
             storage_overrides_components=bool(

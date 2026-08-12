@@ -107,8 +107,9 @@ preserve the contradictions rather than cleaning them up:
 
 Things were also **cut** after turning out to serve requirements nobody had:
 coverage geometry (~300 lines that converted "enough for a 20 cm cake" into
-grams), family-based component swapping, OR nodes, and tool occupancy. The
-reasoning for each is in the format doc.
+grams), family-based component swapping, OR nodes, tool occupancy, and recipe
+parameters — no recipe ever declared one, so that resolver step ran on an empty
+list for every recipe in the bank. The reasoning for each is in the format doc.
 
 Full reasoning in [`docs/format.md`](docs/format.md).
 

@@ -4,7 +4,7 @@ No Home Assistant dependency lives in here on purpose: the integration wraps
 this library, which keeps the resolver testable on its own.
 """
 
-from .adjust import AdjustmentError, apply_adjustments, apply_parameters
+from .adjust import AdjustmentError, apply_adjustments
 from .compare import Comparison, compare
 from .importer import import_page, import_url
 from .library import Food, FoodBank, Library, LibraryError
@@ -64,7 +64,6 @@ __all__ = [
     "UnresolvableComponent",
     "Vessel",
     "apply_adjustments",
-    "apply_parameters",
     "blocks",
     "check_plan",
     "compare",
