@@ -20,6 +20,13 @@
       "unknown": "Something unexpected went wrong. The details are in your Home Assistant log."
     }
   },
+  "entity": {
+    "todo": {
+      "shopping_list": {
+        "name": "Shopping list"
+      }
+    }
+  },
   "exceptions": {
     "directory_not_found": {
       "message": "There is no folder at {detail}."
@@ -32,6 +39,44 @@
     },
     "invalid_recipe": {
       "message": "A recipe file could not be read: {detail}"
+    },
+    "library_not_loaded": {
+      "message": "Recipe Wizard has not finished reading your recipes yet. Try again in a moment."
+    },
+    "recipe_not_found": {
+      "message": "No recipe matches \"{recipe}\". Use the recipe's name, or enough of it to tell it apart from the others."
+    },
+    "recipe_ambiguous": {
+      "message": "\"{recipe}\" matches more than one recipe: {matches}. Say a bit more of the name."
+    },
+    "recipe_unresolvable": {
+      "message": "Recipe Wizard could not work out a shopping list for {recipe}: {detail}"
+    },
+    "computed_item_read_only": {
+      "message": "\"{item}\" is worked out from your recipe, so its wording cannot be changed here. You can still tick it off, or take it off this list. To change the words, edit the recipe."
+    },
+    "item_gone": {
+      "message": "\"{item}\" is no longer on the shopping list."
+    }
+  },
+  "services": {
+    "set_shopping_list": {
+      "name": "Set shopping list",
+      "description": "Chooses the recipe the shopping list is for, and how many batches of it you are making. Anything you have already ticked off is cleared, because it belonged to the previous list. Items you added yourself are kept.",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "The recipe you are shopping for: its name, or enough of the name to pick out just one recipe."
+        },
+        "batches": {
+          "name": "Batches",
+          "description": "How many batches you are making. 1 is one batch of the recipe as written; 2 doubles it, including any sub-recipes it uses."
+        },
+        "include_optional": {
+          "name": "Include optional parts",
+          "description": "Turn this off to leave out the parts of the recipe marked optional, such as a sauce that goes with it. Optional ingredients inside a part you are still making are kept, because another part may need the same food."
+        }
+      }
     }
   }
 }

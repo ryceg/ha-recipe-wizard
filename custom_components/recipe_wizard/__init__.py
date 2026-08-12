@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 # exactly what ADR 0002 forbids, and ``Platform`` is a ``StrEnum`` whose members
 # equal these strings anyway. If you are adding a platform, append "sensor" or
 # "todo" -- do not "fix" this by importing the enum.
-PLATFORMS: list[str] = []
+PLATFORMS: list[str] = ["todo"]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -48,6 +48,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     nothing is worse than one that is not there yet, because an automation can be
     written against it. Registration needs no runtime data -- resolve the entry
     inside the handler and raise ``ServiceValidationError`` when it is not loaded.
+
+    ``recipe_wizard.set_shopping_list`` is deliberately *not* here: it changes one
+    todo entity's list and nothing else, so it is an entity service registered in
+    ``todo.py``, which ``action-setup`` exempts. This seam is still where anything
+    acting on the library rather than on one entity belongs.
     """
     return True
 

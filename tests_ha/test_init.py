@@ -17,7 +17,6 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.recipe_wizard import PLATFORMS
 from custom_components.recipe_wizard.const import CONF_RECIPES_DIR, DOMAIN
 from tests_ha.support import write_recipe
 
@@ -42,12 +41,6 @@ async def test_the_library_is_parsed_in_the_executor(
     coordinator = loaded_entry.runtime_data.coordinator
     assert coordinator.last_update_success
     assert coordinator.recipe_count == len(coordinator.data)
-
-
-async def test_no_platforms_are_forwarded_yet(hass: HomeAssistant):
-    """A reminder, not a rule: the next agent appends to ``PLATFORMS`` and this
-    test is the one that should be deleted when they do."""
-    assert PLATFORMS == []
 
 
 async def test_unloading_leaves_the_entry_unloaded(

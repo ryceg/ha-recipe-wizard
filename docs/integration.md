@@ -17,10 +17,8 @@ It is built around two things:
 Everything happens on your own machine. Recipe Wizard does not talk to the
 internet and does not send your recipes anywhere.
 
-> **A note on this version.** This release is the plumbing only: it finds your
-> recipes, checks it can read them, and keeps watching the folder. The cook-along
-> and shopping-list screens come next. If you install it now, you will see the
-> integration listed and no entities yet.
+> **A note on this version.** The shopping list is here. The cook-along comes
+> next.
 
 ## What it needs from you
 
@@ -87,6 +85,103 @@ If setup succeeded before and the integration later shows as *retrying*, the
 usual cause is the same list above — most often a recipe file that has been
 edited and is no longer valid. The log names the file.
 
+## Using the shopping list
+
+Recipe Wizard adds one to-do list, called **Recipe Wizard Shopping list**. You
+will find it in the **To-do lists** panel in the sidebar, and you can put it on a
+dashboard with a to-do list card.
+
+It starts empty, because it does not yet know what you are cooking.
+
+### Telling it what you are shopping for
+
+There is one list, not one per recipe, so something has to say which recipe it is
+for. That is the **Set shopping list** action.
+
+In **Developer tools → Actions**, choose **Recipe Wizard: Set shopping list**, and
+fill in:
+
+* **Recipe** — the name of the recipe, or enough of the name to pick out just one.
+  "Qeema" is enough; "buttercream" is not, if you have three of them. It will tell
+  you which ones it matched so you can be more specific.
+* **Batches** — how many batches you are making. 1 is the recipe as written, 2
+  doubles it. Half batches are allowed.
+* **Include optional parts** — leave this on unless you want to skip the parts of
+  the recipe marked optional, such as a sauce that goes alongside.
+
+In YAML, for a dashboard button or an automation:
+
+```yaml
+action: recipe_wizard.set_shopping_list
+target:
+  entity_id: todo.recipe_wizard_shopping_list
+data:
+  recipe: Vanilla cake
+  batches: 2
+```
+
+The list fills in straight away. Choosing a different recipe starts a new list.
+
+### What a line means
+
+Each line is **one food to buy**, added up across the whole recipe — including
+any sub-recipes it uses. A doubled vanilla cake needs butter in the cake and in
+the buttercream, so the list says:
+
+> **unsalted butter: 680 g**
+> 230 g, cut into cubes — My Very Best Vanilla Cake
+> 450 g — Vanilla buttercream
+
+One thing to buy, on the first line. Two things to have ready, underneath. Tap or
+click a line to see that second part.
+
+Some lines cannot give you a weight, and they say so rather than guessing:
+
+* **at least 500 g, plus 1 line with no weight** — part of the recipe gives an
+  amount that cannot be turned into a weight, such as "a splash of milk". So the
+  weight shown is a floor, not a total, and buying only that much may not be
+  enough.
+* **no weight given** — none of it could be weighed. This usually means the recipe
+  has not been fully written up yet.
+* **plus more to taste** — a recipe seasons with it rather than measuring it. Buy
+  some; there is nothing to add up.
+* **(optional)** — no part of what you are making needs it.
+* **not in the library — see Dinner, p.308** — the recipe points at a cookbook
+  rather than another recipe file. Recipe Wizard cannot know what is in it, so it
+  puts the book reference on the list instead of a quantity, and leaves it out of
+  the weights on purpose.
+
+### Ticking things off, and adding your own
+
+The list works like any other to-do list in Home Assistant:
+
+* **Tick a line** as you put it in the trolley. Ticks are remembered — they
+  survive Home Assistant restarting, and they survive you editing a recipe while
+  you are out.
+* **Add your own items.** Bin bags, milk for tea, anything. These are yours:
+  Recipe Wizard never removes them, not when the recipes change, not when you
+  restart, and not when you choose a different recipe.
+* **Remove completed items** to clear the lines you have already got. Lines that
+  came from the recipe come back the next time you choose a recipe, because the
+  recipe still calls for them.
+
+Two things it will not let you do, and why:
+
+* **You cannot reword a line that came from a recipe.** Those words are worked out
+  from the recipe file, so the next time Recipe Wizard reads the folder it would
+  overwrite whatever you typed. Rather than lose your text quietly, it refuses and
+  says so. Items you added yourself can be reworded freely.
+* **You cannot reorder the list.** The order is the order the recipe lists its
+  ingredients in, which is information worth keeping.
+
+Choosing a new recipe clears the ticks, because they belonged to the last shop.
+Choosing the *same* recipe and batch size again changes nothing, so a dashboard
+button is safe to press twice.
+
+If the list ever shows as **unavailable**, the recipe it was pointing at can no
+longer be read — most often because the file was moved, renamed or deleted. The
+reason is in **Settings → System → Logs**. Choose a recipe again to fix it.
+
 ## Keeping up with changes
 
 Recipe Wizard checks the recipe folder **every 15 minutes**, so a recipe you add
@@ -102,8 +197,8 @@ minutes is generous on purpose.
 1. Go to **Settings → Devices & services**.
 2. Find **Recipe Wizard**, open its three-dot menu and choose **Delete**.
 
-That removes the integration's own settings and any entities it created. **Your
-recipe files are not touched.** They are your own documents, they live outside
+That removes the integration's own settings, the shopping list and anything you
+had ticked off or added to it. **Your recipe files are not touched.** They are your own documents, they live outside
 the integration folder, and nothing in Recipe Wizard ever deletes or edits them —
 so you can delete the integration and add it back later against the same folder.
 
@@ -115,6 +210,11 @@ restart Home Assistant.
 
 Worth knowing before you rely on it:
 
+* **The shopping list is for one recipe at a time.** There is one list, and the
+  Set shopping list action says which recipe it is showing. A separate list for
+  every recipe you own would mean hundreds of them, all but one of them useless.
+  If you are cooking two things, shop for them one after the other, or add the
+  second one's items yourself.
 * **You edit recipes outside Home Assistant.** There is no screen for writing or
   changing a recipe. That is done with the command-line tool.
 * **Nutrition is not calculated.** Recipe Wizard works in grams and millilitres,
