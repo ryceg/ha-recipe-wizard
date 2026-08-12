@@ -1,13 +1,55 @@
 """Scheduling, and the constraints that stop it ruining the food."""
 
 import pytest
+from conftest import COFFEE_BC
 
 from custom_components.recipe_wizard.core import check_plan, rigid_chains, schedule
-from custom_components.recipe_wizard.core.schedule import dependencies, topological_order
+from custom_components.recipe_wizard.core.resolve import resolve
+from custom_components.recipe_wizard.core.schedule import (
+    dependencies,
+    effective_recipe,
+    topological_order,
+)
 
 
 def _starts(plan):
     return {s.step_id: s.start_s for s in plan.steps}
+
+
+# ---------------------------------------------------------------------------
+# What gets planned: the effective document, not the one on disk
+# ---------------------------------------------------------------------------
+
+
+def test_a_variant_is_planned_from_the_steps_it_inherited(library):
+    """The live bug: ``schedule(library.recipe(id))`` gave a 0-minute plan.
+
+    The coffee buttercream's document is a patch list -- no ingredients, no
+    steps -- so planning it off disk produced nothing at all for a recipe that
+    takes six and a half minutes.
+    """
+    plan = schedule(resolve(library, COFFEE_BC, strict=False))
+    assert [s.step_id for s in plan.steps] == [
+        "#cream-butter", "#add-sugar", "#finish",
+    ]
+    assert plan.total_s == pytest.approx(6.5 * 60, abs=1)
+
+
+def test_a_bare_recipe_is_still_planned_unchanged(cake):
+    """A level-0 scrape has no resolution and still has to be planned."""
+    assert effective_recipe(cake) is cake
+    assert schedule(cake).total_s > 0
+
+
+def test_scaling_does_not_disturb_the_plan(library, brownies):
+    """Portions scale; times do not. A doubled tray is not a longer recipe.
+
+    Which is the point of ``rw:bakeTimeByVessel``: bake time comes from the
+    vessel, not the batch mass, so the resolver warns and refuses to touch it.
+    """
+    single = schedule(resolve(library, brownies.id))
+    doubled = schedule(resolve(library, brownies.id, requires_batches=2))
+    assert doubled.total_s == single.total_s
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +172,16 @@ def test_minimum_delays_stretch_the_total_time(brownies):
 def test_hands_on_and_hands_off_time_do_not_double_count(cake):
     plan = schedule(cake)
     assert plan.active_s + plan.unattended_s <= plan.total_s + 1
+
+
+def test_doneness_reaches_the_scheduled_step(brownies):
+    """It used to be dropped on the way onto the plan, which is where a timer
+    is built from -- so the timer could only ever show the clock, and the clock
+    is the estimate."""
+    plan = schedule(brownies)
+    assert plan.step("#bake").doneness == "edges firmish, centre still jiggling"
+    assert plan.step("#freeze-pb").doneness == "firm enough to lift out in one piece"
+    assert plan.step("#reline-pan").doneness is None, "not every step has one"
 
 
 def test_dependencies_come_from_the_dataflow_graph(cake):

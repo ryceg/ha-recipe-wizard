@@ -132,6 +132,32 @@ came to preheat the oven *after* baking. The validator flags these.
 Hands-on and hands-off totals are computed by sweeping the timeline, not summing
 durations, which double-counts overlapping branches.
 
+### The cook-along
+
+`cookalong.py` is the join the primary surface needs: `resolve_dish()` for the
+effective recipe and the scale, `resolution.steps` for the portions *at* that
+scale, `resolution.ingredients` for the masses, and `schedule()` for the order,
+the window and the timer. It is **stateless over a cursor** — the integration
+holds "which step am I on" and asks what that step is — because Home Assistant
+restores its own state on restart, and two copies of one cursor is one too many.
+
+Everything it answers comes from the **effective** document, and reaching for
+`library.recipe(id)` instead is the mistake the module exists to stop. The
+coffee buttercream is a pure patch list, so the renderer and the planner both
+presented it as an empty ingredient table and a 0-minute plan. `Resolution.recipe`
+(base + variants + local adjustments, unscaled) and `Resolution.steps` (the same
+steps with absolute portions scaled) are the pair that fixes it, and `schedule()`,
+`render_table()` and `step_ingredients()` each take **one** argument so a caller
+cannot hand them a document and a scale that disagree. That was not theoretical:
+the table read its weights off the resolution and its portions off the document,
+so a doubled tray printed 500 g of peanut butter beside "dollop 2 tbsp".
+
+**Components are grouped, not interleaved.** Every scheduling property above
+names step ids inside one document, so a dish is presented as each recipe's own
+ordered steps with its own plan, labelled, and the cursor walks the tree in
+document order. Merging them into one timeline would mean inventing edges no
+recipe states — see § Known gaps.
+
 ## Yields and scaling
 
 | Property | Meaning |
@@ -282,8 +308,23 @@ measure is unreliable.
 
 ## Known gaps
 
-* **Doneness is stored and displayed but does not drive anything.** A timer
-  should say "32 min, then check: edges firmish, centre still jiggling".
+* **Doneness reaches the timer, and still drives nothing.** It is carried onto
+  `ScheduledStep` and rendered by `CookStep.timer_label()`, so a timer now reads
+  *"32 min, then check: edges firmish, centre still jiggling"* — and *"go by:
+  the mint is very finely chopped"* where the source gives a state and no time.
+  Shown against every step of `--plan` that has one, and in `--cook`. What is
+  still missing is any *behaviour*: nothing holds a timer open waiting for the
+  cook to confirm the state, nothing asks, and the schedule is still built from
+  the clock alone. It is displayed, not enforced.
+* **One timeline across component recipes.** Each recipe is planned on its own
+  and the cook-along groups them; nothing slots the frosting into the gap while
+  the cake cools. Doing it needs three things the corpus does not state:
+  cross-document edges (at minimum, a component must finish before the parent
+  step that consumes it, and the buttercream's "use immediately on cooled cakes"
+  is a *maximum* delay in the other direction), a concurrency limit for a cook
+  who cannot be in two `active` steps at once, and a reading of `rw:makeAhead`
+  as a scheduling constraint rather than a note. Until those exist, interleaving
+  would be invention dressed as a plan.
 * **Conditional steps.** *"If the liquid evaporates excessively, add water."*
 * **Package-relative quantities.** *"¾ cup coconut milk (~½ can)"* — the other
   half-can is a real pantry problem.
