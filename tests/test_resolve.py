@@ -3,6 +3,7 @@
 import pytest
 
 from conftest import BROWNIES, CAKE, CHOCOLATE_BC, COFFEE_BC, VANILLA_BC
+from support import build_library, build_recipe, ingredient, step
 
 from custom_components.recipe_wizard.core import (
     Adjustment,
@@ -73,13 +74,10 @@ def test_the_cake_asks_for_one_batch_of_frosting(library, cake):
 def test_doubling_a_parent_doubles_its_component(library, cake):
     """Which is the whole of what coverage geometry was needed for."""
     use = cake.components[0]
-    use.requires_batches = 2.0
-    try:
-        result = resolve_component(library, use)
-        assert result.scale == pytest.approx(2.0)
-        assert result.produced_g == pytest.approx(2 * 738, rel=0.02)
-    finally:
-        use.requires_batches = 1.0
+    use.requires_batches = 2.0  # the library is this test's own; nothing escapes
+    result = resolve_component(library, use)
+    assert result.scale == pytest.approx(2.0)
+    assert result.produced_g == pytest.approx(2 * 738, rel=0.02)
 
 
 # ---------------------------------------------------------------------------
@@ -192,18 +190,32 @@ def test_strict_false_downgrades_the_refusal_to_a_warning(library):
     assert any("minimum batch" in w for w in result.warnings)
 
 
-def test_discrete_eggs_round_up_and_renormalise_the_batch(library):
-    """What a cook actually does: round the eggs, then rescale to them."""
-    full = resolve(library, CAKE)
+def test_discrete_eggs_round_up_and_renormalise_the_batch():
+    """What a cook actually does: round the eggs, then rescale to them.
+
+    The premise is stated rather than reverse-engineered out of the cake: a
+    400 g batch built on 4 eggs, asked for 225 g, wants 2.25 eggs. There is no
+    such thing as 2.25 eggs, so the batch goes up to 3 of them -- x0.75, not
+    x0.5625 -- and the 75 g surplus is told to the cook rather than hidden.
+    """
+    recipe = build_recipe(ingredients=[
+        ingredient("eggs", count=4, unit_mass=50, discrete=True),
+        ingredient("flour", mass=200),
+    ])
+    library = build_library(recipe)
+
     result = resolve(
-        library, CAKE,
-        requires_mass=Quantity(full.batch_yield_g * 0.5613, "g"),
+        library, recipe.id,
+        requires_mass=Quantity(225, "g"),
         batch_policy=BatchPolicy(mode="roundUpToWholeUnit", basis="#eggs"),
     )
-    assert _ingredient(result, "#eggs").mass_g / 52.5 == pytest.approx(3.0, abs=0.01)
-    assert result.scale == pytest.approx(0.75, abs=0.01)
-    assert result.leftover_g > 0
+    assert result.batch_yield_g == pytest.approx(400)
+    assert _ingredient(result, "#eggs").mass_g / 50 == pytest.approx(3.0)
+    assert result.scale == pytest.approx(0.75)
+    assert result.leftover_g == pytest.approx(75)
     assert "leftover" in result.summary()
+    assert any("2.25 eggs rounded to 3" in w for w in result.warnings), \
+        "the rounding is reported, not silently applied"
 
 
 def test_sublinear_ingredients_do_not_scale_linearly(library):
@@ -241,8 +253,24 @@ def test_doubling_refuses_to_scale_the_bake_time(library):
     assert any("3 x 20cm round: 22 min" in w for w in result.warnings)
 
 
-def test_an_unscaled_recipe_gets_no_vessel_noise(library):
-    assert resolve(library, CAKE).warnings == []
+def test_an_unscaled_recipe_gets_no_vessel_noise():
+    """A recipe that would warn if it were scaled has to stay silent at x1.
+
+    Built rather than borrowed: this used to assert the cake resolves with no
+    warnings *at all*, so one volume measure added anywhere in it, with no
+    density in the bank, failed a test about vessels.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=600)],
+        steps=[step("#bake", consumes=["#flour"], produces=("#loaf", "Loaf"),
+                    vessel_options=[("2 x 20cm round", "PT30M")])],
+        vessel=("20 cm round tin", 1, 500),
+    )
+    library = build_library(recipe)
+
+    assert resolve(library, recipe.id).warnings == []
+    assert resolve(library, recipe.id, requires_batches=2.0).warnings, \
+        "the premise: this recipe does have something to say once it is scaled"
 
 
 # ---------------------------------------------------------------------------

@@ -1,8 +1,15 @@
 """Validation, including the conflicts the real recipes actually contain."""
 
-import pytest
-
-from conftest import BROWNIES, CAKE, CHOCOLATE_BC
+from conftest import CHOCOLATE_BC
+from support import (
+    build_library,
+    build_recipe,
+    component,
+    ingredient,
+    portion,
+    step,
+    storage_option,
+)
 
 from custom_components.recipe_wizard.core import validate_library, validate_recipe
 from custom_components.recipe_wizard.core.model import ConsumeRef, Portion
@@ -10,6 +17,12 @@ from custom_components.recipe_wizard.core.validate import ERROR
 
 
 def test_the_library_has_no_errors(library):
+    """The one assertion whose subject really is the corpus.
+
+    Every recipe on disk resolves, schedules and links up. This is the contract
+    the enrichment skill iterates against, and it is the only thing a new
+    recipe is allowed to break.
+    """
     errors = [f for f in validate_library(library) if f.level == ERROR]
     assert errors == [], "\n".join(str(f) for f in errors)
 
@@ -84,16 +97,27 @@ def test_two_steps_claiming_the_remainder_is_an_error(library, brownies):
                for f in findings)
 
 
-def test_an_unaccounted_portion_is_reported(library):
+def test_an_unaccounted_portion_is_reported():
     """The brownies' salt flakes are "divided" and only half is ever used.
 
     Recorded as the source states it rather than guessed at, so the warning is
-    correct and stays.
+    correct and stays. The rule is asserted here against a recipe built to
+    contain exactly that gap: counting one such finding across the library said
+    nothing about the rule and everything about there being only seven recipes.
     """
-    findings = validate_library(library)
-    salt = [f for f in findings if f.code == "portions-under-whole"]
-    assert len(salt) == 1
-    assert "#salt-flakes" in salt[0].message
+    recipe = build_recipe(
+        ingredients=[ingredient("salt flakes", mass=8)],
+        steps=[step("#season",
+                    consumes=[("#salt-flakes",
+                               portion(fraction=0.5, text="half the salt flakes"))],
+                    produces=("#seasoned", "Seasoned brownies"))],
+    )
+    findings = validate_recipe(recipe, build_library(recipe))
+
+    unaccounted = [f for f in findings if f.code == "portions-under-whole"]
+    assert len(unaccounted) == 1
+    assert "#salt-flakes" in unaccounted[0].message
+    assert "50%" in unaccounted[0].message
 
 
 # ---------------------------------------------------------------------------
@@ -135,9 +159,35 @@ def test_the_butter_divergence_is_reported(library):
     assert "unit-divergence" in {f.code for f in findings}
 
 
-def test_the_storage_conflict_between_cake_and_frosting_is_reported(library, cake):
-    """The buttercream says refrigerate; the cake says do not."""
-    conflicts = [f for f in validate_recipe(cake, library)
+def test_a_component_stored_differently_from_its_parent_is_reported():
+    """The buttercream says refrigerate; the cake says do not.
+
+    Storage is not inherited or intersected, and the parent declaring itself
+    authoritative silences nothing -- picking one quietly is what makes a
+    component containing raw egg dangerous. Built as a pair, because a count of
+    one conflict in the cake breaks as soon as the cake gains a second component
+    with storage of its own, which says nothing about this rule.
+    """
+    frosting = build_recipe(
+        name="Buttercream",
+        ingredients=[ingredient("butter", mass=250)],
+        storage=[storage_option("refrigerated", keeps="P7D")],
+    )
+    parent = build_recipe(
+        name="Frosted cake",
+        ingredients=[ingredient("flour", mass=250)],
+        components=[component("Buttercream", recipe=frosting.id)],
+        steps=[
+            step("#bake", consumes=["#flour"], produces=("#layers", "Baked layers")),
+            step("#frost", consumes=["#layers", "#buttercream"],
+                 produces=("#cake", "Frosted cake")),
+        ],
+        storage=[storage_option("room-temperature", keeps="P4D",
+                                condition="unless the climate is very hot")],
+        storage_overrides_components=True,
+    )
+
+    conflicts = [f for f in validate_recipe(parent, build_library(parent, frosting))
                  if f.code == "storage-conflict"]
     assert len(conflicts) == 1
     assert "refrigerated" in conflicts[0].message
