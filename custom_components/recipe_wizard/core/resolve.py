@@ -94,6 +94,18 @@ class Resolution:
     batch_yield_g: float | None
     requested_g: float | None
     produced_g: float | None
+    recipe: Recipe
+    """The *effective* document this resolution came from: base plus the variant
+    chain plus any local adjustments, before scaling.
+
+    Carried because every caller needs it and none of them could get it. The
+    planner and the renderer both walk ``recipe.steps``, and reaching for
+    ``library.recipe(id)`` gets them the document on disk instead -- which for
+    a variant is missing the steps its base was patched with, and for a
+    component is missing the parent's overrides. ``steps`` below is this
+    recipe's steps with their portions scaled; this field is the unscaled
+    document the whole resolution is true of.
+    """
     ingredients: list[ResolvedIngredient] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
     storage: list[Storage] = field(default_factory=list)
@@ -403,6 +415,7 @@ def resolve(
         batch_yield_g=batch_yield,
         requested_g=requested_g,
         produced_g=produced_g,
+        recipe=recipe,
         ingredients=resolved,
         steps=scaled_steps(recipe, scale),
         storage=recipe.storage,

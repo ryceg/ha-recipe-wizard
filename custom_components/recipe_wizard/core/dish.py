@@ -50,13 +50,7 @@ from typing import Iterator
 
 from .library import Library, LibraryError
 from .model import Adjustment, ComponentUse
-from .resolve import (
-    Resolution,
-    UnresolvableComponent,
-    materialise,
-    resolve,
-    resolve_component,
-)
+from .resolve import Resolution, UnresolvableComponent, resolve, resolve_component
 from .units import Quantity
 
 
@@ -156,24 +150,14 @@ def resolve_dish(
         adjustments=adjustments,
         strict=strict,
     )
-    return _grow(
-        library,
-        recipe_id,
-        resolution,
-        use=None,
-        adjustments=adjustments,
-        strict=strict,
-        path=(recipe_id,),
-    )
+    return _grow(library, resolution, use=None, strict=strict, path=(recipe_id,))
 
 
 def _grow(
     library: Library,
-    recipe_id: str,
     resolution: Resolution,
     *,
     use: ComponentUse | None,
-    adjustments: list[Adjustment] | None,
     strict: bool,
     path: tuple[str, ...],
 ) -> Dish:
@@ -185,7 +169,11 @@ def _grow(
         use=use,
     )
 
-    for child_use in _components_of(library, recipe_id, adjustments):
+    # The components of the *effective* recipe, which is why the resolution
+    # carries it: a variant inherits its base's components and never restates
+    # them, so reading the document off disk loses a variant of the cake its
+    # frosting.
+    for child_use in resolution.recipe.components:
         ref = child_use.recipe_ref
         if ref is not None and ref in path:
             raise ComponentCycleError(
@@ -202,34 +190,10 @@ def _grow(
             continue
         assert ref is not None  # resolve_component raises without one
         dish.components.append(
-            _grow(
-                library,
-                ref,
-                child,
-                use=child_use,
-                adjustments=child_use.adjustments,
-                strict=strict,
-                path=(*path, ref),
-            )
+            _grow(library, child, use=child_use, strict=strict, path=(*path, ref))
         )
 
     return dish
-
-
-def _components_of(
-    library: Library, recipe_id: str, adjustments: list[Adjustment] | None
-) -> list[ComponentUse]:
-    """The components of the *effective* recipe, not of the document on disk.
-
-    ``materialise()`` again rather than ``library.recipe()`` because a variant
-    inherits its base's components and never restates them: read the document
-    directly and a variant of the cake silently loses its frosting.
-    ``resolve()`` does this work too but does not hand back the recipe, so the
-    uses here are deep copies of the library's -- compare them by ``id``, not
-    by identity.
-    """
-    recipe, _ = materialise(library, recipe_id, adjustments=adjustments)
-    return recipe.components
 
 
 def _scaled_use(use: ComponentUse, factor: float) -> ComponentUse:
