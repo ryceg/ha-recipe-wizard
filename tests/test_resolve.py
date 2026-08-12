@@ -4,7 +4,7 @@ import pytest
 
 from conftest import BROWNIES, CAKE, CHOCOLATE_BC, COFFEE_BC, VANILLA_BC
 
-from recipe_wizard import (
+from custom_components.recipe_wizard.core import (
     Adjustment,
     BatchConstraintError,
     BatchPolicy,
@@ -13,7 +13,7 @@ from recipe_wizard import (
     resolve,
     resolve_component,
 )
-from recipe_wizard.adjust import AdjustmentError
+from custom_components.recipe_wizard.core.adjust import AdjustmentError
 
 # ---------------------------------------------------------------------------
 # Level 0: a bare scrape must still be usable

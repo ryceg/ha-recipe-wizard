@@ -1,6 +1,6 @@
 import pytest
 
-from recipe_wizard import Library
+from custom_components.recipe_wizard.core import Library
 
 VANILLA_BC = "urn:recipe:rte/vanilla-buttercream"
 CHOCOLATE_BC = "urn:recipe:rte/chocolate-buttercream"

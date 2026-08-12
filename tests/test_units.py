@@ -2,8 +2,8 @@
 
 import pytest
 
-from recipe_wizard.duration import parse_duration
-from recipe_wizard.units import Quantity, UnitError, to_grams, to_millilitres
+from custom_components.recipe_wizard.core.duration import parse_duration
+from custom_components.recipe_wizard.core.units import Quantity, UnitError, to_grams, to_millilitres
 
 
 def test_tablespoon_differs_by_system():

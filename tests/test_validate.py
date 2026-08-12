@@ -4,9 +4,9 @@ import pytest
 
 from conftest import BROWNIES, CAKE, CHOCOLATE_BC
 
-from recipe_wizard import validate_library, validate_recipe
-from recipe_wizard.model import ConsumeRef, Portion
-from recipe_wizard.validate import ERROR
+from custom_components.recipe_wizard.core import validate_library, validate_recipe
+from custom_components.recipe_wizard.core.model import ConsumeRef, Portion
+from custom_components.recipe_wizard.core.validate import ERROR
 
 
 def test_the_library_has_no_errors(library):

@@ -2,8 +2,8 @@
 
 import pytest
 
-from recipe_wizard import check_plan, rigid_chains, schedule
-from recipe_wizard.schedule import dependencies, topological_order
+from custom_components.recipe_wizard.core import check_plan, rigid_chains, schedule
+from custom_components.recipe_wizard.core.schedule import dependencies, topological_order
 
 
 def _starts(plan):

@@ -1,7 +1,6 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
+# Nothing here builds a wheel: HACS ships the integration by copying
+# custom_components/recipe_wizard/ into the user's config directory. This file
+# exists for the dev dependency and the pytest configuration.
 [project]
 name = "recipe-wizard"
 version = "0.1.0"
@@ -12,8 +11,6 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["recipe_wizard"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

@@ -57,7 +57,7 @@ Add `rw:ingredients`, one per `recipeIngredient` string, carrying
   them when the source does; they are cross-checked and disagreements are
   reported, which is the point.
 - Never convert a measure the source did not give. If a line is volume-only and
-  the food is not in `data/foods.json`, add the food with an honest
+  the food is not in `custom_components/recipe_wizard/data/foods.json`, add the food with an honest
   `density_confidence`, or leave it and accept the warning.
 - `rw:scaling`: `linear` by default; `sublinear` for leavening, salt, spices
   and extracts; `fixed` for anything that does not change with batch size;

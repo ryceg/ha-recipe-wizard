@@ -6,9 +6,9 @@ import pytest
 
 from conftest import CAKE
 
-from recipe_wizard import Library
-from recipe_wizard.compare import compare, similarity
-from recipe_wizard.importer import ImportError_, clean, extract_jsonld, import_page
+from custom_components.recipe_wizard.core import Library
+from custom_components.recipe_wizard.core.compare import compare, similarity
+from custom_components.recipe_wizard.core.importer import ImportError_, clean, extract_jsonld, import_page
 
 PAGE = """
 <html><head>

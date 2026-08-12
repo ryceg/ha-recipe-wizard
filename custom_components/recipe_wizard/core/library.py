@@ -13,8 +13,14 @@ from typing import Iterator
 
 from .model import Recipe, RecipeFamily
 
+# The food bank ships with the integration, so it is always package-relative.
 DEFAULT_FOODS = Path(__file__).resolve().parent.parent / "data" / "foods.json"
-DEFAULT_RECIPES = Path(__file__).resolve().parent.parent / "recipes"
+
+# Recipes are the user's, not ours, so they sit beside ``custom_components``
+# rather than inside it: the repo root when developing, and the Home Assistant
+# config directory once installed. The config flow passes an explicit path, so
+# this is only the default for the CLI and the tests.
+DEFAULT_RECIPES = Path(__file__).resolve().parents[3] / "recipes"
 
 
 class LibraryError(LookupError):

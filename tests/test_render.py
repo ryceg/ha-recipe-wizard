@@ -2,14 +2,14 @@
 
 from conftest import BROWNIES, CAKE, VANILLA_BC
 
-from recipe_wizard.render import (
+from custom_components.recipe_wizard.core.render import (
     blocks,
     first_use,
     ingredients_for_step,
     render_table,
     uses_of,
 )
-from recipe_wizard.resolve import resolve
+from custom_components.recipe_wizard.core.resolve import resolve
 
 
 # ---------------------------------------------------------------------------

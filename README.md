@@ -62,14 +62,22 @@ wrong and missed link.
 | Path | |
 | --- | --- |
 | `docs/format.md` | The format spec, and why each decision is what it is |
-| `recipe_wizard/` | The core library. No Home Assistant dependency, on purpose |
-| `recipes/` | Five worked recipes, encoding the real sources faithfully |
-| `data/foods.json` | Food concepts, densities and per-unit masses |
-| `tests/` | 78 tests, most of them named after a failure mode |
+| `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
+| `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
+| `recipes/` | Seven worked recipes, encoding the real sources faithfully |
+| `tests/` | 94 tests, most of them named after a failure mode |
 
 Core modules: `resolve.py` (the pipeline), `schedule.py` (constraint solving),
 `adjust.py` (patch operations), `mass.py` (unit reconciliation),
 `render.py` (the table and the cook-along view), `validate.py`.
+
+The library is vendored *inside* the integration directory because HACS installs
+`custom_components/recipe_wizard/` and nothing else, so anything the integration
+needs at runtime has to live there — including the food bank. `recipe_wizard.py`
+at the root is a three-line trampoline that keeps `python -m recipe_wizard`
+working. Recipes are the exception: they are the user's data, so they sit
+*beside* `custom_components/`, which is this repo root when developing and the
+Home Assistant config directory once installed.
 
 ## Why it's shaped like this
 
