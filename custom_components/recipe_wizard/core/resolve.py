@@ -9,7 +9,7 @@ once the batch is scaled down, with nothing to indicate anything went wrong.
     2. apply the variant chain, base-first
     3. apply the parent's local adjustments
     4. compute batch yield
-    5. compute the required amount (mass, or coverage resolved against yield)
+    5. compute the required amount (a mass, or a batch count)
     6. raw scale factor = required / yield
     7. apply the batch policy (discrete rounding, whole batches)
     8. check batch constraints
