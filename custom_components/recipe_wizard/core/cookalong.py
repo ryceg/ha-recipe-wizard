@@ -46,6 +46,7 @@ from typing import Iterator
 
 from .dish import Dish, resolve_dish
 from .duration import Duration
+from .graph import RecipeGraph, recipe_graph
 from .library import Library
 from .model import (
     Adjustment,
@@ -54,9 +55,10 @@ from .model import (
     Portion,
     Product,
     RequiredState,
+    fragment,
 )
-from .render import format_mass, ingredients_for_step
-from .resolve import Resolution, effective_recipe
+from .render import format_mass
+from .resolve import Resolution
 from .schedule import DEFAULT_STEP_S, Plan, schedule
 from .units import Quantity
 
@@ -235,9 +237,9 @@ class CookAlong:
     # -- this dish -----------------------------------------------------------
 
     def step(self, step_id: str) -> CookStep | None:
-        fragment = "#" + step_id.split("#")[-1]
+        short = fragment(step_id)
         for entry in self.steps:
-            if entry.step_id in (step_id, fragment):
+            if entry.step_id in (step_id, short):
                 return entry
         return None
 
@@ -313,10 +315,24 @@ def step_ingredients(resolution: Resolution, step_id: str) -> list[StepIngredien
     resolution carries the effective document, its scaled portions and its
     scaled masses as one object.
     """
-    document = effective_recipe(resolution)
+    return _step_ingredients(recipe_graph(resolution), resolution, step_id)
+
+
+def _step_ingredients(
+    graph: RecipeGraph, resolution: Resolution, step_id: str
+) -> list[StepIngredient]:
+    """The same answer, for a caller already holding this resolution's graph.
+
+    Private, and it takes both, because the public form's whole point is that
+    there is nowhere to put a second document. ``cook_along_from_dish`` walks
+    every step of a recipe, and building the index per step is what made the
+    renderer rebuild its product-label map once per page. The graph passed here
+    is always the one built from ``resolution`` a line or two above.
+    """
     masses = {row.id: row for row in resolution.ingredients}
     out: list[StepIngredient] = []
-    for ref, label, portion in ingredients_for_step(document, step_id):
+    for entry in graph.step_inputs(step_id):
+        ref, label, portion = entry.ref, entry.label, entry.portion
         row = masses.get(ref)
         out.append(
             StepIngredient(
@@ -371,9 +387,13 @@ def cook_along_from_dish(
     position to notice.
     """
     resolution = dish.resolution
-    document = effective_recipe(resolution)
-    plan = schedule(resolution, default_step_s=default_step_s)
-    by_id = {step.id: step for step in document.steps}
+    # One graph for this dish, built from the effective document and handed to
+    # both the planner and every step's ingredient lookup. It is built here, not
+    # cached on the resolution: ``apply_adjustments`` inserts steps and renumbers
+    # positions during resolution, so an index that outlived that would be wrong
+    # in a way that reads as bad data.
+    graph = recipe_graph(resolution)
+    plan = schedule(graph, default_step_s=default_step_s)
 
     children = [
         cook_along_from_dish(child, default_step_s=default_step_s)
@@ -391,10 +411,10 @@ def cook_along_from_dish(
 
     steps: list[CookStep] = []
     for scheduled in plan.steps:
-        step = by_id.get(scheduled.step_id)
+        step = graph.step(scheduled.step_id)
         if step is None:  # pragma: no cover - the plan is built from these
             continue
-        ingredients = step_ingredients(resolution, step.id)
+        ingredients = _step_ingredients(graph, resolution, step.id)
         for entry in ingredients:
             if entry.row_mass_g is None and entry.id in produced_by_use:
                 entry.row_mass_g = produced_by_use[entry.id]

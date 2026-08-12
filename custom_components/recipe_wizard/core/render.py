@@ -12,6 +12,12 @@ So the "RESULT column" question answers itself. Intermediates already appear in
 the left column when they are consumed -- which is exactly how Modernist prints
 "Stove-Top Carotene Butter, see page 121" -- and a sixth column would be mostly
 empty. They are shown instead as a labelled rule closing each block.
+
+Every one of those three rules is a question about the graph, and this module
+asks ``graph.py`` rather than walking it. It used to rebuild a
+``{product_id: label}`` map on every ``ingredients_for_step`` call -- once per
+step of a cook-along walk -- and call ``uses_of`` inside its per-ingredient loop,
+which made the table O(ingredients x steps).
 """
 
 from __future__ import annotations
@@ -20,9 +26,9 @@ import shutil
 from dataclasses import dataclass, field
 from textwrap import wrap
 
+from .graph import GraphSource, recipe_graph
 from .model import Portion, Recipe, Step
 from .resolve import Resolution
-from .resolve import effective_recipe
 
 INFINITY = 10**9
 
@@ -34,29 +40,31 @@ class Block:
     ingredient_ids: list[str] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
     result: str | None = None
+    first_use: Step | None = None
+    """The step that put this block here, and the block's own identity.
+
+    This and ``steps`` used to be a second list kept hand-in-hand with
+    ``grouped``, indexed together with nothing enforcing that they stayed the
+    same length. It also held a *position number*, so two things first used by
+    two different steps that shared a ``position`` were filed as one block.
+    ``None`` for things no step ever uses, and for the head block of steps that
+    run before any ingredient appears.
+    """
 
 
-def first_use(recipe: Recipe) -> dict[str, int]:
+def first_use(source: GraphSource) -> dict[str, int]:
     """The position of the earliest step consuming each id."""
-    out: dict[str, int] = {}
-    for step in sorted(recipe.steps, key=lambda s: s.position):
-        for ref in step.consumed_ids:
-            out.setdefault(ref, step.position)
-    return out
+    graph = recipe_graph(source)
+    return {ref: step.position for ref, step in graph.first_use_steps.items()}
 
 
-def uses_of(recipe: Recipe, ref: str) -> list[tuple[Step, Portion]]:
+def uses_of(source: GraphSource, ref: str) -> list[tuple[Step, Portion]]:
     """Every step that takes some of ``ref``, with how much it takes."""
-    out = []
-    for step in sorted(recipe.steps, key=lambda s: s.position):
-        portion = step.portion_of(ref)
-        if portion is not None:
-            out.append((step, portion))
-    return out
+    return [(use.step, use.portion) for use in recipe_graph(source).consumers(ref)]
 
 
 def ingredients_for_step(
-    recipe: Recipe, step_id: str
+    source: GraphSource, step_id: str
 ) -> list[tuple[str, str, Portion]]:
     """What to put in front of the cook at one step: id, label, how much.
 
@@ -64,63 +72,59 @@ def ingredients_for_step(
     peanut butter at step 2 and nothing at all at step 12's "dollop 2 tbsp
     across the surface".
 
-    Deliberately takes a bare ``Recipe`` and returns portions exactly as the
-    document states them, at base yield. A level-0 scrape has no resolution and
-    still has to render, so this form has to keep working. It is *not* the form
-    to call when a scale is in play: use ``cookalong.step_ingredients``, which
-    takes a ``Resolution`` and nothing else, so the document, the portions and
-    the masses cannot come from three different batches.
+    Deliberately answers for a bare ``Recipe`` and returns portions exactly as
+    the document states them, at base yield. A level-0 scrape has no resolution
+    and still has to render, so this form has to keep working. It is *not* the
+    form to call when a scale is in play: use ``cookalong.step_ingredients``,
+    which takes a ``Resolution`` and nothing else, so the document, the portions
+    and the masses cannot come from three different batches.
     """
-    step = recipe.step(step_id)
-    if step is None:
-        return []
-    products = {
-        product.id: product.name or product.id
-        for other in recipe.steps
-        for product in other.produces
-    }
-    out: list[tuple[str, str, Portion]] = []
-    for consumed in step.consumes:
-        ingredient = recipe.ingredient(consumed.ref)
-        if ingredient is not None:
-            out.append((consumed.ref, ingredient.name, consumed.portion))
-            continue
-        component = next((c for c in recipe.components if c.id == consumed.ref), None)
-        if component is not None:
-            out.append((consumed.ref, component.label, consumed.portion))
-            continue
-        # Intermediates count too: "half the brownie batter" is exactly the
-        # kind of thing the cook needs told, and it is not an ingredient.
-        if consumed.ref in products:
-            out.append((consumed.ref, products[consumed.ref], consumed.portion))
-    return out
+    return [
+        (entry.ref, entry.label, entry.portion)
+        for entry in recipe_graph(source).step_inputs(step_id)
+    ]
 
 
-def blocks(recipe: Recipe) -> list[Block]:
-    """Group ingredients by first use, and hand each group its steps."""
-    uses = first_use(recipe)
-    entries = [(ing.id, uses.get(ing.id, INFINITY)) for ing in recipe.ingredients]
-    entries += [(c.id, uses.get(c.id, INFINITY)) for c in recipe.components]
-    entries.sort(key=lambda pair: pair[1])
+def blocks(source: GraphSource) -> list[Block]:
+    """Group ingredients by the step that first uses them, and hand it its steps."""
+    graph = recipe_graph(source)
+    recipe = graph.recipe
+
+    entries = [(ing.id, graph.first_use(ing.id)) for ing in recipe.ingredients]
+    entries += [(c.id, graph.first_use(c.id)) for c in recipe.components]
+    # Stable, so things sharing a first use keep the order the document lists
+    # them in. Anything never consumed sorts to the end and shares one block.
+    entries.sort(key=lambda pair: INFINITY if pair[1] is None else pair[1].position)
 
     grouped: list[Block] = []
-    starts: list[int] = []
-    for ingredient_id, position in entries:
-        if grouped and starts[-1] == position:
-            grouped[-1].ingredient_ids.append(ingredient_id)
+    for thing_id, step in entries:
+        # Grouped on the step itself, not on its number. Two ingredients first
+        # used by two *different* steps belong in two blocks even if a document
+        # numbers both steps the same.
+        if grouped and grouped[-1].first_use is step:
+            grouped[-1].ingredient_ids.append(thing_id)
         else:
-            grouped.append(Block(ingredient_ids=[ingredient_id]))
-            starts.append(position)
+            grouped.append(Block(ingredient_ids=[thing_id], first_use=step))
 
-    ordered_steps = sorted(recipe.steps, key=lambda s: s.position)
+    ordered_steps = graph.ordered_steps
+    order = {step.id: index for index, step in enumerate(ordered_steps)}
     for index, block in enumerate(grouped):
-        start = starts[index]
-        if start >= INFINITY:
+        if block.first_use is None:
             continue
-        following = [s for s in starts[index + 1:] if s < INFINITY]
-        end = following[0] - 1 if following else ordered_steps[-1].position
-        block.steps = [s for s in ordered_steps if start <= s.position <= end]
+        start = order[block.first_use.id]
+        following = next(
+            (b.first_use for b in grouped[index + 1:] if b.first_use is not None), None
+        )
+        # The span runs to just before the next block's first use. Sliced by
+        # order rather than by position arithmetic, so a repeated position number
+        # cannot hand two blocks the same steps.
+        end = len(ordered_steps) - 1 if following is None else order[following.id] - 1
+        block.steps = list(ordered_steps[start:end + 1])
         if block.steps:
+            # A block's result is what its *last* step produces -- and its first
+            # product, where a step emits several. That rule exists nowhere else
+            # in the system: it is the table's own, and it is what closes a block
+            # with "-> Buttercream base" instead of a sixth column.
             produced = block.steps[-1].produces
             if produced:
                 block.result = produced[0].name or produced[0].id
@@ -161,7 +165,11 @@ def render_table(
     """
     width = width or min(shutil.get_terminal_size((100, 24)).columns, 110)
     resolution = None if isinstance(source, Recipe) else source
-    recipe = effective_recipe(source)
+    # One graph for the whole table. Every lookup below used to be a scan:
+    # ``uses_of`` inside the per-ingredient loop made this O(ingredients x steps),
+    # which is a shape that only shows up once a recipe is large.
+    graph = recipe_graph(source)
+    recipe = graph.recipe
     masses = {}
     if resolution:
         masses = {i.id: i for i in resolution.ingredients}
@@ -181,13 +189,11 @@ def render_table(
     lines.append(header)
     lines.append("=" * min(width, len(header) + proc_w - len("PROCEDURE")))
 
-    for block in blocks(recipe):
+    for block in blocks(graph):
         left: list[str] = []
         for ingredient_id in block.ingredient_ids:
             resolved = masses.get(ingredient_id)
-            component = next(
-                (c for c in recipe.components if c.id == ingredient_id), None
-            )
+            component = graph.component(ingredient_id)
             if component is not None:
                 label = f"{component.label} (sub-recipe)"
                 weight = "-"
@@ -199,14 +205,14 @@ def render_table(
                 if basis_mass and resolved.mass_g is not None:
                     scaling = f"{resolved.mass_g / basis_mass:.1%}"
             else:
-                ing = recipe.ingredient(ingredient_id)
+                ing = graph.ingredient(ingredient_id)
                 label = ing.name if ing else ingredient_id
                 weight = str(ing.mass) if ing and ing.mass else "-"
                 scaling = "-"
 
             # Flag anything used more than once, so the table does not imply
             # the whole amount goes in at its first appearance.
-            uses = uses_of(recipe, ingredient_id)
+            uses = graph.consumers(ingredient_id)
             if len(uses) > 1:
                 label += f" (in {len(uses)} parts)"
             for row, chunk in enumerate(wrap(label, name_w) or [""]):

@@ -4,6 +4,7 @@ import pytest
 from conftest import COFFEE_BC
 
 from custom_components.recipe_wizard.core import check_plan, rigid_chains, schedule
+from custom_components.recipe_wizard.core.graph import recipe_graph
 from custom_components.recipe_wizard.core.resolve import effective_recipe, resolve
 from custom_components.recipe_wizard.core.schedule import (
     dependencies,
@@ -194,3 +195,27 @@ def test_topological_order_covers_every_step(cake):
     assert len(ordered) == len(cake.steps)
     positions = {step.id: i for i, step in enumerate(ordered)}
     assert positions["#beat-eggs"] < positions["#add-sugar"] < positions["#beat-to-ribbon"]
+
+
+def test_a_scheduled_step_is_found_by_either_spelling_of_its_id(cake):
+    """``Plan.step`` was a linear scan with an exact-match test, in a module where
+    every other id lookup tolerates a fully-qualified reference. The scan is now
+    an index built on first use, and the test is the library's one rule."""
+    plan = schedule(cake)
+
+    assert plan.step("#bake") is plan.step(f"{cake.id}#bake")
+    assert plan.step("#not-a-step-in-this-recipe") is None
+
+
+def test_planning_from_a_prebuilt_graph_gives_the_same_plan(cake):
+    """The index is built by the caller that needs it and passed down: the
+    cook-along builds one per dish and hands it to the planner, which is what
+    stops ``dependencies`` being recomputed three times per call."""
+    graph = recipe_graph(cake)
+    from_graph = schedule(graph)
+    from_document = schedule(cake)
+
+    assert [(s.step_id, s.start_s) for s in from_graph.steps] == [
+        (s.step_id, s.start_s) for s in from_document.steps
+    ]
+    assert dependencies(graph) is graph.dependencies

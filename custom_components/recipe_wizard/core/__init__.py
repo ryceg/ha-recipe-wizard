@@ -16,6 +16,7 @@ from .cookalong import (
     step_ingredients,
 )
 from .dish import Dish, resolve_dish
+from .graph import Input, Node, RecipeGraph, Use, recipe_graph
 from .importer import import_page, import_url
 from .library import Food, FoodBank, Library, LibraryError
 from .mass import MassResult, MassTable, ingredient_mass, mass_table
@@ -64,15 +65,18 @@ __all__ = [
     "Food",
     "FoodBank",
     "Ingredient",
+    "Input",
     "Library",
     "LibraryError",
     "MassResult",
     "MassTable",
+    "Node",
     "Plan",
     "Portion",
     "Quantity",
     "Recipe",
     "RecipeFamily",
+    "RecipeGraph",
     "Resolution",
     "ResolvedIngredient",
     "Step",
@@ -80,6 +84,7 @@ __all__ = [
     "Storage",
     "UnitError",
     "UnresolvableComponent",
+    "Use",
     "Vessel",
     "apply_adjustments",
     "blocks",
@@ -94,6 +99,7 @@ __all__ = [
     "ingredients_for_step",
     "mass_table",
     "materialise",
+    "recipe_graph",
     "render_table",
     "resolve",
     "resolve_component",

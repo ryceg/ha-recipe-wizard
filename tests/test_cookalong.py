@@ -8,7 +8,7 @@ and a timer that dropped the doneness it was supposed to display.
 
 import pytest
 from conftest import BROWNIES, CAKE, COFFEE_BC, VANILLA_BC
-from support import build_library, build_recipe, ingredient, portion, step
+from support import build_library, build_recipe, component, ingredient, portion, step
 
 from custom_components.recipe_wizard.core.cookalong import (
     cook_along,
@@ -233,6 +233,46 @@ def test_a_component_use_shows_what_it_will_make(library):
     assert frosting.row_mass_g == pytest.approx(
         cook.components[0].resolution.produced_g
     )
+
+
+def test_a_step_naming_things_by_their_full_id_still_shows_their_masses(library):
+    """The asymmetry bug, end to end and at the point it costs the cook something.
+
+    Two halves. ``ingredients_for_step`` matched a component with ``c.id == ref``
+    while resolving the ingredient beside it through the tolerant lookup, so a
+    fully-qualified reference to the frosting produced no row at all. And a row
+    that *was* produced carried the reference as the step had written it, so the
+    mass lookup -- keyed by the ingredient's own ``@id`` -- missed, and the flour
+    arrived with a name and no weight. Both are fixed by reporting a resolved
+    reference under the node's own id.
+    """
+    doc_id = "urn:recipe:test/long-form-cook"
+    frosting = build_recipe(
+        name="Buttercream", ingredients=[ingredient("butter", mass=250)],
+    )
+    parent = build_recipe(
+        id=doc_id,
+        name="Frosted cake",
+        ingredients=[ingredient("flour", mass=250)],
+        components=[component("Buttercream", id="#frosting", recipe=frosting.id)],
+        steps=[
+            step("#bake", consumes=[f"{doc_id}#flour"],
+                 produces=("#layers", "Baked layers")),
+            step("#frost", consumes=["#layers", f"{doc_id}#frosting"],
+                 produces=("#cake", "Frosted cake")),
+        ],
+    )
+    cook = cook_along(build_library(parent, frosting), parent.id)
+
+    flour = next(i for i in cook.step("#bake").ingredients if i.id == "#flour")
+    assert flour.row_mass_g == pytest.approx(250), "the weight, not just the name"
+
+    layer, butter = cook.step("#frost").ingredients
+    assert layer.name == "Baked layers"
+    assert butter.name == "Buttercream"
+    assert butter.row_mass_g == pytest.approx(
+        cook.components[0].resolution.produced_g
+    ), "what the sub-recipe will actually make"
 
 
 def test_doubling_a_dish_doubles_its_components(library):

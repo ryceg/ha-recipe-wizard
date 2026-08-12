@@ -12,6 +12,13 @@ towards level 3 by an enrichment skill. Firing level-3 rules at a level-0
 document buries the real findings under noise about a document that was never
 claiming to be more than a scrape -- and makes the validator useless as the
 skill's success signal, which is the job it actually has to do.
+
+Every graph rule asks ``graph.py`` rather than walking. That is not only about
+the four indexes this module used to rebuild: "known id" was a set of *literal*
+``@id`` strings, so a step naming its own frosting
+``urn:recipe:rte/vanilla-cake#frosting`` -- legal, since identity lives in
+``@id`` -- was reported as ``dangling-consume``. A rule that fires spuriously is
+worse than a rule that does not exist.
 """
 
 from __future__ import annotations
@@ -19,6 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .adjust import AdjustmentError
+from .graph import RecipeGraph, recipe_graph
 from .library import Library, LibraryError
 from .mass import FORM_UNKNOWN, mass_table
 from .model import Recipe
@@ -28,12 +36,7 @@ from .resolve import (
     materialise,
     resolve_component,
 )
-from .schedule import (
-    ScheduleError,
-    dependencies,
-    successors,
-    topological_order,
-)
+from .schedule import ScheduleError, topological_order
 
 ERROR = "error"
 WARNING = "warning"
@@ -65,19 +68,15 @@ class Finding:
         return f"[{self.level:7}] {self.where}: {self.message}"
 
 
-def _known_ids(recipe: Recipe) -> set[str]:
-    ids = {ing.id for ing in recipe.ingredients}
-    ids |= {comp.id for comp in recipe.components}
-    for step in recipe.steps:
-        ids |= {product.id for product in step.produces}
-    return ids
-
-
 def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
     """Every check that can be run against a single recipe document."""
     findings: list[Finding] = []
     where = recipe.id or recipe.name
     level = recipe.enrichment_level
+    # One index for every graph rule below. This module used to build the set of
+    # known ids twice, the dependency map and its inverse from scratch, and the
+    # per-target portion grouping by walking every step again.
+    graph = recipe_graph(recipe)
 
     def add(severity: str, code: str, message: str) -> None:
         findings.append(Finding(severity, code, where, message))
@@ -138,28 +137,33 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
                     f"{step.id!r} is positional; patches targeting it break when a "
                     "step is inserted above. Use a semantic id.")
 
-        known = _known_ids(recipe)
-        consumed: set[str] = set()
-        for step in recipe.steps:
-            for ref in step.consumed_ids:
-                consumed.add(ref)
-                if ref not in known:
-                    add(ERROR, "dangling-consume",
-                        f"{step.id} consumes {ref!r}, which is not an ingredient, "
-                        "a component, or produced by any step")
+        # "Known" is now one question with one answer: does the graph hold a node
+        # under this reference, in any of the three id namespaces? It used to be
+        # a set built here and a second, differently-built set at level 3.
+        for use in graph.edges:
+            if graph.node(use.ref) is None:
+                add(ERROR, "dangling-consume",
+                    f"{use.step.id} consumes {use.ref!r}, which is not an "
+                    "ingredient, a component, or produced by any step")
 
+        consumed = graph.consumed_ids
         for ing in recipe.ingredients:
             if ing.id not in consumed:
                 add(WARNING, "unused-ingredient",
                     f"{ing.name!r} ({ing.id}) is never consumed by any step")
 
-        findings.extend(_portion_findings(recipe, where))
+        findings.extend(_portion_findings(graph, where))
 
         # A step nothing depends on floats free. Under backward scheduling it
         # lands at the end of the plan, which is how a recipe ends up
         # preheating its oven after the bake.
-        depended_on = successors(dependencies(recipe))
-        last = max((s.position for s in recipe.steps), default=0)
+        #
+        # ``last_position`` is "the end" *of the page* -- one of three unrelated
+        # notions of the end in this system, and deliberately not merged with the
+        # other two. The thing printed at the bottom of a recipe is allowed to be
+        # the thing you eat, whatever the dataflow says about it.
+        depended_on = graph.successors
+        last = graph.last_position
         for step in recipe.steps:
             if depended_on.get(step.id) or step.position == last:
                 continue
@@ -169,22 +173,25 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
                 "something consumes, or a rw:leadBefore on the step that needs it")
 
         try:
-            topological_order(recipe)
+            topological_order(graph)
         except ScheduleError as exc:
             add(ERROR, "step-cycle", str(exc))
 
     # -- Level 3: components and a full graph ---------------------------
     if level >= 3:
-        consumed = {ref for step in recipe.steps for ref in step.consumed_ids}
         for comp in recipe.components:
-            if comp.id not in consumed:
+            if comp.id not in graph.consumed_ids:
                 add(WARNING, "unused-component",
                     f"component {comp.label!r} ({comp.id}) is never consumed by "
                     "any step")
 
-        produced = {p.id for step in recipe.steps for p in step.produces}
-        terminal = produced - consumed
-        sinks = [s for s in recipe.steps if not s.produces and s.consumes]
+        # The *dataflow* end: products nothing takes, and steps that take
+        # something and emit nothing. The third of the three notions of the end,
+        # and the only one this rule is about -- a document may have several
+        # unconsumed products while having exactly one last page, and the two
+        # coincide across today's corpus by accident rather than by rule.
+        terminal = graph.unconsumed_products()
+        sinks = graph.sink_steps()
         if recipe.steps and not terminal and not sinks:
             add(ERROR, "no-terminal-product", "no step produces a final result")
         elif len(terminal) > 1:
@@ -197,16 +204,18 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
     return findings
 
 
-def _portion_findings(recipe: Recipe, where: str) -> list[Finding]:
-    """Portions of one thing must add up to something a cook could do."""
-    findings: list[Finding] = []
-    by_target: dict[str, list] = {}
-    for step in recipe.steps:
-        for consumed in step.consumes:
-            by_target.setdefault(consumed.ref, []).append((step, consumed.portion))
+def _portion_findings(graph: RecipeGraph, where: str) -> list[Finding]:
+    """Portions of one thing must add up to something a cook could do.
 
-    for ref, uses in by_target.items():
-        portions = [p for _, p in uses]
+    Grouped by *target* rather than by the spelling each step used, which the
+    graph already does: two steps taking 90% of the same thing under two
+    spellings of its id is the exact error this rule exists to catch, and a
+    grouping keyed on the raw reference would have reported neither.
+    """
+    findings: list[Finding] = []
+
+    for ref, uses in graph.consumers_by_ref.items():
+        portions = [use.portion for use in uses]
         remainders = [p for p in portions if p.remainder]
         if len(remainders) > 1:
             findings.append(Finding(

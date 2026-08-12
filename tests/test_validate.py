@@ -141,6 +141,69 @@ def test_a_step_cycle_is_caught(library, cake):
     assert any(f.code == "step-cycle" for f in findings)
 
 
+def test_a_component_consumed_by_its_full_id_is_not_called_dangling():
+    """A spurious ERROR against a document that is correct.
+
+    "Known" was a set of literal ``@id`` strings, so a step naming its own
+    frosting ``urn:recipe:.../cake#frosting`` -- which is legal, since identity
+    lives in ``@id`` -- was reported as consuming something that is not an
+    ingredient, a component or produced by any step. The validator is the
+    enrichment skill's success signal, and a rule that fires spuriously is worse
+    than a rule that does not exist.
+    """
+    doc_id = "urn:recipe:test/long-form-consume"
+    frosting = build_recipe(
+        name="Buttercream", ingredients=[ingredient("butter", mass=250)],
+    )
+    recipe = build_recipe(
+        id=doc_id,
+        name="Frosted cake",
+        ingredients=[ingredient("flour", mass=250)],
+        components=[component("Buttercream", id="#frosting", recipe=frosting.id)],
+        steps=[
+            step("#bake", consumes=[f"{doc_id}#flour"],
+                 produces=("#layers", "Baked layers")),
+            step("#frost", consumes=["#layers", f"{doc_id}#frosting"],
+                 produces=("#cake", "Frosted cake")),
+        ],
+    )
+    codes = {f.code for f in validate_recipe(recipe, build_library(recipe, frosting))}
+
+    assert "dangling-consume" not in codes
+    assert "unused-ingredient" not in codes, "the flour is consumed, the long way"
+    assert "unused-component" not in codes
+    assert "no-terminal-product" not in codes
+
+
+def test_a_target_written_two_ways_is_one_target_for_the_portion_rules():
+    """Otherwise a document takes 60% of the same batter twice and gets a shrug.
+
+    Portions were grouped by the reference each step happened to write, so the
+    same intermediate under two spellings became two targets of 60% each -- both
+    under the whole, so the overdraw went unreported and two spurious
+    "only 60% accounted for" warnings went out instead.
+    """
+    doc_id = "urn:recipe:test/split-two-ways"
+    recipe = build_recipe(
+        id=doc_id,
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces=("#batter", "Batter")),
+            step("#pour", consumes=[("#batter", portion(fraction=0.6))],
+                 produces=("#tray-one", "First tray")),
+            step("#pour-again",
+                 consumes=[(f"{doc_id}#batter", portion(fraction=0.6))],
+                 produces=("#tray-two", "Second tray")),
+        ],
+    )
+    findings = validate_recipe(recipe, build_library(recipe))
+
+    overdrawn = [f for f in findings if f.code == "portions-exceed-whole"]
+    assert [f.level for f in overdrawn] == [ERROR]
+    assert "120%" in overdrawn[0].message
+    assert not any(f.code == "portions-under-whole" for f in findings)
+
+
 def test_an_unused_ingredient_is_flagged(library, cake):
     recipe = cake.copy()
     for step in recipe.steps:

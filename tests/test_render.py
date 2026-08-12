@@ -1,6 +1,7 @@
 """The Modernist row-blocking, which is derived rather than authored."""
 
 from conftest import BROWNIES, CAKE, COFFEE_BC, VANILLA_BC
+from support import build_recipe, component, ingredient, step
 
 from custom_components.recipe_wizard.core.render import (
     blocks,
@@ -169,3 +170,65 @@ def test_every_step_appears_exactly_once(library):
         recipe = library.recipe(recipe_id)
         rendered = [s.id for b in blocks(recipe) for s in b.steps]
         assert sorted(rendered) == sorted(s.id for s in recipe.steps)
+
+
+def test_two_steps_sharing_a_position_do_not_collapse_into_one_block():
+    """The blocking rule is "the first step that consumes it", and it was read as
+    "the first position *number*".
+
+    Two ingredients first used by two different steps that a document numbers the
+    same were filed as one block, and the block then swallowed both steps -- so
+    the table said the flour and the butter go in together and that sifting is
+    part of creaming. No recipe in the corpus repeats a position, which is why
+    nothing caught it; ``rw:position`` is a display number and the format never
+    promised it was unique.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250), ingredient("butter", mass=100)],
+        steps=[
+            step("#sift", consumes=["#flour"], produces=("#dry", "Dry mix"),
+                 position=1),
+            step("#cream", consumes=["#butter"],
+                 produces=("#creamed", "Creamed butter"), position=1),
+            step("#combine", consumes=["#dry", "#creamed"],
+                 produces=("#dough", "Dough"), position=2),
+        ],
+    )
+    result = [b for b in blocks(recipe) if b.ingredient_ids]
+
+    assert [b.ingredient_ids for b in result] == [["#flour"], ["#butter"]]
+    assert [[s.id for s in b.steps] for b in result] == [
+        ["#sift"], ["#cream", "#combine"],
+    ]
+    assert [b.result for b in result] == ["Dry mix", "Dough"]
+
+
+def test_a_step_naming_a_sub_recipe_by_its_full_id_still_lists_it():
+    """The asymmetry bug, at the line that had both rules in it.
+
+    ``ingredients_for_step`` resolved the ingredient through the tolerant
+    ``recipe.ingredient()`` and then matched the component with ``c.id == ref``,
+    so a step naming its own frosting ``urn:recipe:.../cake#frosting`` showed the
+    cook the baked layers and nothing to put on them.
+    """
+    doc_id = "urn:recipe:test/long-form-table"
+    recipe = build_recipe(
+        id=doc_id,
+        ingredients=[ingredient("flour", mass=250)],
+        components=[component("Vanilla buttercream", id="#frosting",
+                              recipe="urn:recipe:test/frosting")],
+        steps=[
+            step("#bake", consumes=[f"{doc_id}#flour"],
+                 produces=("#layers", "Baked layers")),
+            step("#assemble", consumes=["#layers", f"{doc_id}#frosting"],
+                 produces=("#cake", "Frosted cake")),
+        ],
+    )
+
+    assert [label for _, label, _ in ingredients_for_step(recipe, "#assemble")] == [
+        "Baked layers", "Vanilla buttercream",
+    ]
+    table = render_table(recipe, width=100)
+    assert "Vanilla buttercream (sub-" in table, (
+        "the label wraps mid-word, so only the head is on one line"
+    )
