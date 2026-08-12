@@ -48,6 +48,19 @@ def _refs(value: Any) -> list[str]:
     return [r for r in (_ref(v) for v in _as_list(value)) if r]
 
 
+def fragment(ref: str) -> str:
+    """The fragment of a reference: ``urn:recipe:x#flour`` becomes ``#flour``.
+
+    The whole of the format's tolerance rule, defined once. Identity lives in
+    ``@id`` (``docs/format.md`` principle 4) and a document may point at its own
+    nodes either way round, so every lookup in the library tries the reference as
+    written and then this. It lives here rather than in ``graph.py`` because the
+    three ``Recipe`` lookups below need it and the graph must not be an import
+    the model depends on.
+    """
+    return "#" + ref.split("#")[-1]
+
+
 # --------------------------------------------------------------------------
 # Leaf types
 # --------------------------------------------------------------------------
@@ -758,16 +771,33 @@ class Recipe:
 
     def ingredient(self, ingredient_id: str) -> Ingredient | None:
         """Look an ingredient up by id, tolerating a fully-qualified reference."""
-        fragment = "#" + ingredient_id.split("#")[-1]
+        short = fragment(ingredient_id)
         for ing in self.ingredients:
-            if ing.id in (ingredient_id, fragment):
+            if ing.id in (ingredient_id, short):
                 return ing
         return None
 
+    def component(self, component_id: str) -> ComponentUse | None:
+        """Look a component use up, under the same rule as the other two.
+
+        The symmetry that was missing, and it was not cosmetic.
+        ``render.ingredients_for_step`` resolved an ingredient through
+        ``ingredient()`` -- which accepts
+        ``urn:recipe:rte/vanilla-cake#frosting`` as readily as ``#frosting`` --
+        and then, two lines later, matched a component with ``c.id == ref``. One
+        function, two rules: the same fully-qualified reference resolved to an
+        ingredient row and vanished for a sub-recipe.
+        """
+        short = fragment(component_id)
+        for comp in self.components:
+            if comp.id in (component_id, short):
+                return comp
+        return None
+
     def step(self, step_id: str) -> Step | None:
-        fragment = "#" + step_id.split("#")[-1]
+        short = fragment(step_id)
         for st in self.steps:
-            if st.id in (step_id, fragment):
+            if st.id in (step_id, short):
                 return st
         return None
 
