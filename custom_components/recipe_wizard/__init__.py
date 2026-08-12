@@ -25,14 +25,11 @@ if TYPE_CHECKING:
 
     from .coordinator import RecipeWizardConfigEntry
 
-# The sensor and todo platforms are added by the agents building them.
-# Forwarding an empty list is harmless, so this needs no guard.
-#
 # Plain strings, not ``homeassistant.const.Platform``: importing that here is
 # exactly what ADR 0002 forbids, and ``Platform`` is a ``StrEnum`` whose members
-# equal these strings anyway. If you are adding a platform, append "sensor" or
-# "todo" -- do not "fix" this by importing the enum.
-PLATFORMS: list[str] = []
+# equal these strings anyway. If you are adding a platform, append its name --
+# do not "fix" this by importing the enum.
+PLATFORMS: list[str] = ["sensor"]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -43,12 +40,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     "unknown action" instead of "that config entry is not loaded" -- the first
     sends the user looking for a typo, the second tells them the truth.
 
-    SEAM: the cook-along and shopping-list actions register here. They are the
-    next change and are deliberately not stubbed: an action that exists and does
-    nothing is worse than one that is not there yet, because an automation can be
-    written against it. Registration needs no runtime data -- resolve the entry
-    inside the handler and raise ``ServiceValidationError`` when it is not loaded.
+    The cook-along actions are in ``actions.py`` and are imported here rather than
+    at module scope, per ADR 0002. They take no runtime data: each handler
+    resolves the one loaded entry itself and raises ``ServiceValidationError``
+    when there is not one.
     """
+    from .actions import async_register_actions
+
+    async_register_actions(hass)
     return True
 
 

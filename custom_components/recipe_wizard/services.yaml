@@ -1,0 +1,28 @@
+# The four cook-along actions. Names and descriptions live in strings.json, so
+# nothing user-facing is written twice; this file is the shape of the call.
+#
+# None of them takes a target or an entry id: single_config_entry is true in the
+# manifest, so there is one recipe library and the handler finds it.
+
+start_cook_along:
+  fields:
+    recipe_id:
+      required: true
+      example: brownies
+      selector:
+        text:
+    batches:
+      required: false
+      default: 1
+      selector:
+        number:
+          min: 0.25
+          max: 20
+          step: 0.25
+          mode: box
+
+next_step:
+
+previous_step:
+
+stop_cook_along:

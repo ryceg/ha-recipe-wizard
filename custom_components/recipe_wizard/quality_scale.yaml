@@ -19,19 +19,20 @@
 #   Every call from the integration goes through `hass.async_add_executor_job`,
 #   and Platinum's `async-dependency` is the accepted price.
 #
-# Many entity rules are `todo` only because there are no entities yet: the sensor
-# and todo platforms land after this skeleton.
+# The sensor platform and the four cook-along actions are in place, so the entity
+# and action rules below are answered rather than deferred. What is left is listed
+# honestly: brands needs an asset nobody has drawn, icons need one shared
+# icons.json that every platform's keys go in, and reconfiguration is a real gap.
 
 rules:
   # --- Bronze ---------------------------------------------------------------
   action-setup:
     status: done
     comment: >-
-      Actions register in async_setup, not async_setup_entry, so an automation
-      calling one is told the entry is not loaded rather than that the action
-      does not exist. No action is registered yet; the seam is marked in
-      __init__.py and is deliberately not stubbed, because an action that exists
-      and does nothing can be automated against.
+      The four cook-along actions register in async_setup (actions.py, called from
+      __init__.py), not async_setup_entry, so an automation calling one while the
+      entry is retrying is told the entry is not loaded rather than that the action
+      does not exist. Each handler resolves the one loaded entry itself.
   appropriate-polling:
     status: done
     comment: >-
@@ -47,9 +48,9 @@ rules:
   common-modules:
     status: done
     comment: >-
-      The coordinator is in coordinator.py and shared loading is in loader.py.
-      entity.py arrives with the first platform, which is the first thing that
-      needs a base entity.
+      The coordinator is in coordinator.py, shared loading in loader.py, and the
+      base entity in entity.py -- which owns the unique-id scheme and the one
+      service device, so no platform invents its own.
   config-flow: done
   config-flow-test-coverage:
     status: done
@@ -64,8 +65,10 @@ rules:
       custom_components/recipe_wizard/core/ and is stdlib-only, so there is no
       third-party code to be transparent about.
   docs-actions:
-    status: todo
-    comment: The integration provides no actions yet.
+    status: done
+    comment: >-
+      docs/integration.md documents all four actions, their fields and what each
+      refuses to do, in the same plain language as the rest of that file.
   docs-conditions:
     status: exempt
     comment: The integration provides no conditions.
@@ -84,17 +87,20 @@ rules:
     status: exempt
     comment: The integration provides no triggers.
   entity-event-setup:
-    status: todo
+    status: done
     comment: >-
-      No entities yet. There is no external event stream to subscribe to; the
-      platforms will subclass CoordinatorEntity, which owns the subscribe and
-      unsubscribe.
+      There is no external event stream. RecipeWizardEntity subclasses
+      CoordinatorEntity, which owns the library subscription, and the cook-along
+      sensors add their cursor subscription in async_added_to_hass through
+      async_on_remove.
   entity-unique-id:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: >-
+      entry_id plus a key written in code ("current_step", "step_timer"), so moving
+      the recipe folder does not orphan every dashboard card pointing at them.
   has-entity-name:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: _attr_has_entity_name is set once, on the base entity in entity.py.
   runtime-data:
     status: done
     comment: >-
@@ -120,11 +126,13 @@ rules:
 
   # --- Silver ---------------------------------------------------------------
   action-exceptions:
-    status: todo
+    status: done
     comment: >-
-      No actions yet. The groundwork is in place -- RecipeLibraryError is a
-      HomeAssistantError carrying a translation key, and strings.json already has
-      the exceptions block.
+      ServiceValidationError for what a cook can fix -- a recipe id that matches
+      nothing or matches three, moving with nothing on the go, stepping back from
+      the first step -- and HomeAssistantError for a document that will not
+      resolve. Every message is a translation key in strings.json and names the
+      recipe or the position it is about.
   config-entry-unloading:
     status: done
     comment: >-
@@ -139,10 +147,12 @@ rules:
     status: done
     comment: docs/integration.md walks the single setup field.
   entity-unavailable:
-    status: todo
+    status: done
     comment: >-
-      No entities yet. UpdateFailed already carries the reason, so a
-      CoordinatorEntity will go unavailable correctly for free.
+      Both sensors are CoordinatorEntity subclasses, so a library that will not
+      load makes them unavailable with UpdateFailed's reason attached. A recipe
+      deleted from under a running cook-along is different and reports unknown with
+      a problem attribute, because the library is fine and the position is not.
   integration-owner:
     status: done
     comment: codeowners is set in the manifest.
@@ -152,19 +162,21 @@ rules:
       DataUpdateCoordinator logs the failure once and the recovery once; the
       integration adds no duplicate logging of its own.
   parallel-updates:
-    status: todo
+    status: done
     comment: >-
-      PARALLEL_UPDATES belongs in each platform module and there are no platform
-      modules yet. It should be 0 -- every read is served from the coordinator's
-      already-loaded library.
+      PARALLEL_UPDATES = 0 in sensor.py. Every read is served from the library the
+      coordinator has already loaded and the cook-along the cursor has already
+      resolved, so there is nothing to serialise.
   reauthentication-flow:
     status: exempt
     comment: There are no credentials. Nothing can expire or be revoked.
   test-coverage:
-    status: todo
+    status: done
     comment: >-
-      The glue, the loader and the flow are covered by tests_ha; the rule is met
-      when the platforms are covered too.
+      tests_ha covers the glue, the loader, the flow, both cook-along sensors and
+      all four actions -- including that no property touches the library, that the
+      dish is resolved once for a cursor that only moves, and that the cursor
+      survives an unload and set-up again.
 
   # --- Gold -----------------------------------------------------------------
   devices:
@@ -190,10 +202,10 @@ rules:
       docs/integration.md explains the 15-minute scan and that only changed files
       are re-read.
   docs-examples:
-    status: todo
+    status: done
     comment: >-
-      Waiting on the entities, since a useful example is a dashboard or an
-      automation over them.
+      docs/integration.md carries a cook-along dashboard card over the sensor's
+      attributes and an automation that announces a step's estimated timer.
   docs-known-limitations:
     status: done
     comment: >-
@@ -203,8 +215,10 @@ rules:
     status: exempt
     comment: No devices.
   docs-supported-functions:
-    status: todo
-    comment: There are no entities or actions to document yet.
+    status: done
+    comment: >-
+      docs/integration.md lists both sensors, every attribute worth reading, and
+      the four actions.
   docs-troubleshooting:
     status: done
     comment: docs/integration.md maps each setup error to what to do about it.
@@ -215,17 +229,28 @@ rules:
     status: exempt
     comment: No devices.
   entity-category:
-    status: todo
-    comment: No entities yet.
+    status: exempt
+    comment: >-
+      Neither sensor is diagnostic or configuration. The cook-along is what the
+      integration is for, so filing it under a category would hide the primary
+      surface behind a disclosure triangle.
   entity-device-class:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: >-
+      The step timer is a timestamp, which is what makes a dashboard render it as a
+      countdown. The current step has no applicable class -- there is no device
+      class for "which page of a recipe" -- and inventing one would be worse than
+      none.
   entity-disabled-by-default:
-    status: todo
-    comment: No entities yet.
+    status: exempt
+    comment: >-
+      Two entities, and both are the point. The rule exists for noisy or expensive
+      entities; these cost one already-loaded library between them.
   entity-translations:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: >-
+      Both sensors set a translation_key and strings.json carries the entity block.
+      No name is written in Python.
   exception-translations:
     status: done
     comment: >-
@@ -233,7 +258,10 @@ rules:
       strings.json carries the matching exceptions block.
   icon-translations:
     status: todo
-    comment: Arrives with the entities, which is what there is to give icons to.
+    comment: >-
+      Needs one icons.json holding every platform's entity keys and every action,
+      so it is written once when the platforms are all in rather than merged from
+      two half-files.
   reconfiguration-flow:
     status: todo
     comment: >-

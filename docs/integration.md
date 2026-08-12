@@ -17,10 +17,9 @@ It is built around two things:
 Everything happens on your own machine. Recipe Wizard does not talk to the
 internet and does not send your recipes anywhere.
 
-> **A note on this version.** This release is the plumbing only: it finds your
-> recipes, checks it can read them, and keeps watching the folder. The cook-along
-> and shopping-list screens come next. If you install it now, you will see the
-> integration listed and no entities yet.
+> **A note on this version.** The cook-along is here. The shopping list comes
+> next, so for now you get the two cook-along sensors described below and no
+> shopping list.
 
 ## What it needs from you
 
@@ -87,6 +86,152 @@ If setup succeeded before and the integration later shows as *retrying*, the
 usual cause is the same list above — most often a recipe file that has been
 edited and is no longer valid. The log names the file.
 
+## Cooking along
+
+This is the part you use in the kitchen. You tell Recipe Wizard what you are
+making and how much of it, and it shows you one step at a time.
+
+Everything appears under a single item called **Recipe Wizard** in
+**Settings → Devices & services**. It is listed as a *service* rather than a
+device, because there is no gadget — it is a folder of files on your own machine.
+
+### The two sensors
+
+**Current step** — `sensor.recipe_wizard_current_step`
+
+Its value is where you are, written as a position: `12/16` means the twelfth step
+of sixteen. Two other values are possible: `idle` when you are not cooking
+anything, and `finished` when you have gone past the last step.
+
+The value is a position rather than the words of the step because Home Assistant
+only allows 255 characters in a value, and a step can be longer than that. The
+words are in the attributes instead, where there is no limit:
+
+| Attribute | What it holds |
+| --- | --- |
+| `step` | The step itself, in the recipe's own words. This is the one to put on screen. |
+| `needs` | What to have in front of you for this step, already worked out for your batch size — *"smooth peanut butter: 4 tbsp (of 500 g)"*. |
+| `timer` | What a timer for this step should say — *"32 min, then check: edges firmish, centre still jiggling"* — or nothing if the step has no waiting in it. |
+| `doneness` | How you know the step is done. Where a recipe gives both a time and a state, **the state is the one to trust.** |
+| `attention` | `active` if you have to stand there, `passive` if you can potter, `unattended` if you can leave the room. |
+| `may_pause_after` | `true` if this is a sensible place to stop and carry on later. |
+| `recipe` and `recipe_id` | Which recipe this step belongs to. A cake and its frosting each have their own run of steps, so this changes partway through. |
+| `dish` | What you are making overall. |
+| `step_number` and `of` | The same numbers as the value, separately, for a card that wants to do arithmetic. |
+| `batches` | How many batches you asked for. |
+| `produces` | What this step makes, so you know what to label the bowl. |
+| `warnings` | Anything the recipe itself says will not work at this size — *"cannot be made at 100 g: its minimum batch is 500 g"*. Worth reading before you start. |
+| `cited_components` | Parts of the recipe that live in a cookbook rather than in your folder. You have to go and get the book. |
+| `safety_note`, `timer_starts_when` | Only present when the recipe says something about them. |
+
+**Step timer** — `sensor.recipe_wizard_step_timer`
+
+Roughly when the current step's stated time runs out, as a time of day, which
+Home Assistant shows as a countdown. It is an **estimate**, and it is deliberately
+blank rather than approximate:
+
+* A step that gives no time at all gets no countdown. Recipe Wizard will not
+  invent one.
+* A step whose timing starts on something happening — *"once the water is back to
+  the boil"* — gets no countdown either, because nothing here can see your pan.
+  The phrase is in the `timer_starts_when` attribute instead.
+* Where a recipe gives a range, such as *freeze for two to three hours*, the
+  countdown is the early end and the attribute `latest_estimate` is the late one.
+  Neither is averaged into a number the recipe never gave.
+
+Its `doneness` attribute sits beside it on purpose. **A countdown reaching zero is
+not the same as the food being ready.**
+
+### The four actions
+
+You can call these from a dashboard button, a script, an automation, or by voice.
+None of them asks which Recipe Wizard you mean, because there is only one.
+
+| Action | What it does |
+| --- | --- |
+| `recipe_wizard.start_cook_along` | Starts a recipe. Takes **Recipe** and, optionally, **Batches**. |
+| `recipe_wizard.next_step` | On to the next step. After the last one it reads as `finished`. |
+| `recipe_wizard.previous_step` | Back one step, to read it again. |
+| `recipe_wizard.stop_cook_along` | Done. Clears the current step. |
+
+**Recipe** does not have to be the recipe's full internal name. Part of its title
+is enough — `brownies` — as long as it matches only one recipe. If it matches
+several you are told which ones, rather than being given the wrong one. If it
+matches nothing, the message quotes what you typed so you can see the typo.
+
+**Batches** is a plain multiplier: `1` is the recipe as written, `2` doubles
+everything including any sub-recipes, and `0.5` halves it. Every amount you see
+afterwards is already scaled, so there is no arithmetic left for you.
+
+Where you are is remembered properly, not just for as long as Home Assistant
+happens to be running. If you restart it while a tray is chilling, the cook-along
+comes back on the same step.
+
+### A cook-along card
+
+This is a plain Markdown card, which is enough for a screen on a kitchen wall:
+
+```yaml
+type: markdown
+content: |
+  {% set s = states.sensor.recipe_wizard_current_step %}
+  {% if s.state in ['idle', 'finished', 'unknown'] %}
+  Nothing on the go.
+  {% else %}
+  ### {{ s.attributes.recipe }} — step {{ s.attributes.step_number }} of {{ s.attributes.of }}
+
+  {{ s.attributes.step }}
+
+  {% for line in s.attributes.needs %}- {{ line }}
+  {% endfor %}
+  {% if s.attributes.timer %}**{{ s.attributes.timer }}**{% endif %}
+  {% if s.attributes.may_pause_after %}You can stop here and carry on later.{% endif %}
+  {% endif %}
+```
+
+With two buttons under it, big enough for a knuckle:
+
+```yaml
+type: horizontal-stack
+cards:
+  - type: button
+    name: Back
+    icon: mdi:arrow-left
+    tap_action:
+      action: perform-action
+      perform_action: recipe_wizard.previous_step
+  - type: button
+    name: Next
+    icon: mdi:arrow-right
+    tap_action:
+      action: perform-action
+      perform_action: recipe_wizard.next_step
+```
+
+### Announcing a step's timer
+
+Because the step timer is a time of day, an automation can wait for it:
+
+```yaml
+automation:
+  - alias: Say when the current step's time is up
+    triggers:
+      - trigger: template
+        value_template: >-
+          {{ has_value('sensor.recipe_wizard_step_timer')
+             and as_datetime(states('sensor.recipe_wizard_step_timer')) <= now() }}
+    actions:
+      - action: notify.persistent_notification
+        data:
+          message: >-
+            {{ state_attr('sensor.recipe_wizard_current_step', 'recipe') }}:
+            time is up. Check {{ state_attr('sensor.recipe_wizard_step_timer', 'doneness')
+            or 'the step' }}.
+```
+
+Note that it reads the doneness out and says it. That is the point: the time is a
+guess and the state of the food is not.
+
 ## Keeping up with changes
 
 Recipe Wizard checks the recipe folder **every 15 minutes**, so a recipe you add
@@ -131,6 +276,10 @@ Worth knowing before you rely on it:
   frosting each get their own running order. Recipe Wizard will not decide to slot
   the frosting into the gap while the cake cools, because no recipe says it is
   safe to.
+* **A timer is an estimate and does not go off.** Recipe Wizard tells you roughly
+  when a step's stated time runs out and what to check when it does. It does not
+  set an alarm for you, and it never claims the food is ready — that is what the
+  doneness is for. If you want a sound, write an automation like the one above.
 * **Recipes that point at a cookbook stay pointing at a cookbook.** If a recipe
   says "use the sauce on page 308", Recipe Wizard tells you to go and get the
   book. It leaves that off the shopping list on purpose rather than pretending it
