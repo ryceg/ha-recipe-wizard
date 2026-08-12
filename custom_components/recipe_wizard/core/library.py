@@ -23,8 +23,44 @@ DEFAULT_FOODS = Path(__file__).resolve().parent.parent / "data" / "foods.json"
 DEFAULT_RECIPES = Path(__file__).resolve().parents[3] / "recipes"
 
 
-class LibraryError(LookupError):
-    """A referenced ``@id`` could not be resolved."""
+class LibraryProblem(Exception):
+    """Anything that stops a library being read. The base worth catching.
+
+    Every subclass carries ``source``: the file the problem is in, where there is
+    one. Without it a caller has to re-walk the directory to find out which of
+    two hundred documents it was — and that is exactly what the Home Assistant
+    integration was doing before this existed.
+    """
+
+    def __init__(self, message: str, source: Path | None = None) -> None:
+        super().__init__(message)
+        self.source = source
+
+
+class LibraryError(LibraryProblem, LookupError):
+    """A referenced ``@id`` could not be resolved.
+
+    Still a ``LookupError``, because that is what a failed lookup is and callers
+    catch it as one.
+    """
+
+
+class DocumentError(LibraryProblem):
+    """One document could not be read or parsed.
+
+    The message names the file, because the enrichment loop runs against ~200 of
+    them and ``Expecting ',' delimiter: line 1 column 37`` on its own does not
+    say which one to open.
+    """
+
+
+class FoodBankError(DocumentError):
+    """The food bank could not be read.
+
+    A subclass because the bank *is* a document, and a distinct type because the
+    instruction to the user is different: the bank ships with the library, so a
+    broken one means a broken install rather than a recipe they mistyped.
+    """
 
 
 @dataclass(slots=True)
@@ -57,7 +93,11 @@ class FoodBank:
 
     @classmethod
     def load(cls, path: Path | str = DEFAULT_FOODS) -> "FoodBank":
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        source = Path(path)
+        try:
+            data = json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as err:
+            raise FoodBankError(f"{source.name}: {err}", source) from err
         foods = {}
         for food_id, node in data.get("foods", {}).items():
             foods[food_id] = Food(
@@ -105,8 +145,23 @@ class Library:
         library = cls()
         library.foods = FoodBank.load(foods_path)
         for path in sorted(Path(recipes_dir).rglob("*.json")):
-            library.add_document(json.loads(path.read_text(encoding="utf-8")), path)
+            library.add_document(cls._read(path), path)
         return library
+
+    @staticmethod
+    def _read(path: Path) -> dict:
+        """One document, with the failure naming the file it is in.
+
+        ``json`` reports a line and a column and not a filename, which is fine
+        when you are looking at the file you just edited and useless when a
+        directory of two hundred is being loaded by something else -- the
+        enrichment loop, or a Home Assistant config flow that has to put the
+        answer in a form.
+        """
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as err:
+            raise DocumentError(f"{path.name}: {err}", path) from err
 
     def add_document(self, doc: dict, source: Path | None = None) -> None:
         """Index one JSON-LD document, which may hold a ``@graph`` of nodes."""
@@ -117,14 +172,23 @@ class Library:
             types = node.get("@type")
             types = types if isinstance(types, list) else [types]
             types = {str(t).removeprefix("rw:") for t in types if t}
-            if "Recipe" in types:
-                recipe = Recipe.parse(node)
-                if not recipe.id:
-                    raise LibraryError(f"recipe without @id in {source}")
-                self.recipes[recipe.id] = recipe
-            elif "RecipeFamily" in types:
-                family = RecipeFamily.parse(node)
-                self.families[family.id] = family
+            try:
+                if "Recipe" in types:
+                    recipe = Recipe.parse(node)
+                    if not recipe.id:
+                        raise LibraryError(f"recipe without @id in {source}", source)
+                    self.recipes[recipe.id] = recipe
+                elif "RecipeFamily" in types:
+                    family = RecipeFamily.parse(node)
+                    self.families[family.id] = family
+            except LibraryProblem:
+                raise
+            except (ValueError, TypeError, KeyError) as err:
+                # The model refused the node -- a duration that is not ISO 8601,
+                # a quantity with no value. Same reasoning as ``_read``: the
+                # caller needs the filename, and the model has never seen one.
+                where = source.name if source else "document"
+                raise DocumentError(f"{where}: {err}", source) from err
 
     def recipe(self, recipe_id: str) -> Recipe:
         try:

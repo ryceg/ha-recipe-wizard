@@ -110,7 +110,7 @@ wrong and missed link.
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `custom_components/recipe_wizard/` | The integration itself: the config flow, the coordinator, the glue |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 220 tests, most of them named after a failure mode |
+| `tests/` | 226 tests, most of them named after a failure mode |
 | `tests_ha/` | The integration suite. Needs Home Assistant, so it runs on its own |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together

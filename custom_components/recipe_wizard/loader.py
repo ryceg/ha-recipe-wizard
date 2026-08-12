@@ -5,13 +5,12 @@ config flow loads the library to answer "is this directory usable?" before it
 writes a config entry (Bronze ``test-before-configure``); the coordinator loads
 it to keep it fresh. So the shared part sits here.
 
-What this adds over ``Library.load()`` is **which file, and which of four
-distinct problems**. ``Library.load()`` raises whatever ``json`` or the model
-raises, from a loop that has already forgotten the path it was reading — fine for
-a CLI that prints a traceback next to the command you just typed, useless in a
-config-flow form. A cook who mistyped a directory must be told that, and a cook
-with one bad document must be told its name. The re-walk below is the price of
-saying so, and it is four lines.
+What this adds over ``Library.load()`` is **which of four distinct problems**,
+in a form a config-flow form can show. The library names the file itself — every
+``LibraryProblem`` carries its ``source`` — so all that is left here is deciding
+which of them means "you mistyped the directory", which means "this document is
+broken", and which means "this copy of the integration is broken". Those are
+three different instructions to the user.
 
 **Everything here is synchronous and blocks on file I/O.** Call it only through
 ``hass.async_add_executor_job``.
@@ -19,13 +18,17 @@ saying so, and it is four lines.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import DOMAIN
-from .core.library import DEFAULT_FOODS, FoodBank, Library, LibraryError
+from .core.library import (
+    DEFAULT_FOODS,
+    FoodBankError,
+    Library,
+    LibraryProblem,
+)
 
 #: Fingerprint entry for a path that is not there. Distinct from any real
 #: ``stat``, so a deleted recipe changes the fingerprint rather than vanishing
@@ -69,29 +72,18 @@ def load_library(
         raise RecipeLibraryError("directory_not_found", str(directory))
 
     try:
-        foods = FoodBank.load(foods_path)
-    except (OSError, ValueError) as err:
+        library = Library.load(directory, foods_path)
+    except FoodBankError as err:
         # The bank ships inside the integration, so this is a broken install or
         # a broken download rather than anything the user typed. It still has to
         # be a distinct message: "your recipes are fine, this copy of the
         # integration is not" is a different instruction.
         raise RecipeLibraryError("foods_unreadable", str(err)) from err
-
-    documents = sorted(directory.rglob("*.json"))
-    if not documents:
-        raise RecipeLibraryError("no_recipes", str(directory))
-
-    library = Library()
-    library.foods = foods
-    for path in documents:
-        try:
-            document = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as err:
-            raise RecipeLibraryError("invalid_recipe", f"{path.name} ({err})") from err
-        try:
-            library.add_document(document, path)
-        except (LibraryError, ValueError, TypeError, KeyError) as err:
-            raise RecipeLibraryError("invalid_recipe", f"{path.name} ({err})") from err
+    except LibraryProblem as err:
+        # ``LibraryProblem`` carries the file, which is the whole reason this is
+        # four lines rather than a second copy of ``Library.load``'s loop.
+        where = err.source.name if err.source else str(directory)
+        raise RecipeLibraryError("invalid_recipe", f"{where} ({err})") from err
 
     if not library.recipes:
         # JSON files, but not one recipe among them — a directory of families, or

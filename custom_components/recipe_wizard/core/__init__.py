@@ -18,7 +18,15 @@ from .cookalong import (
 from .dish import Dish, resolve_dish
 from .graph import Input, Node, RecipeGraph, Use, recipe_graph
 from .importer import import_page, import_url
-from .library import Food, FoodBank, Library, LibraryError
+from .library import (
+    DocumentError,
+    Food,
+    FoodBank,
+    FoodBankError,
+    Library,
+    LibraryError,
+    LibraryProblem,
+)
 from .mass import MassResult, MassTable, ingredient_mass, mass_table
 from .model import (
     Adjustment,
@@ -71,13 +79,16 @@ __all__ = [
     "CookStep",
     "CursorStep",
     "Dish",
+    "DocumentError",
     "Finding",
     "Food",
     "FoodBank",
+    "FoodBankError",
     "Ingredient",
     "Input",
     "Library",
     "LibraryError",
+    "LibraryProblem",
     "MassResult",
     "MassTable",
     "Node",
