@@ -19,8 +19,8 @@
 #   Every call from the integration goes through `hass.async_add_executor_job`,
 #   and Platinum's `async-dependency` is the accepted price.
 #
-# Many entity rules are `todo` only because there are no entities yet: the sensor
-# and todo platforms land after this skeleton.
+# The remaining entity rules are `todo` only where the platform they are about has
+# not landed yet. The todo platform (the shopping list) is in; the sensors are not.
 
 rules:
   # --- Bronze ---------------------------------------------------------------
@@ -47,9 +47,9 @@ rules:
   common-modules:
     status: done
     comment: >-
-      The coordinator is in coordinator.py and shared loading is in loader.py.
-      entity.py arrives with the first platform, which is the first thing that
-      needs a base entity.
+      The coordinator is in coordinator.py, shared loading is in loader.py, and
+      entity.py holds the base entity every platform subclasses -- the unique-id
+      scheme and the single service device entry live there once.
   config-flow: done
   config-flow-test-coverage:
     status: done
@@ -65,7 +65,12 @@ rules:
       third-party code to be transparent about.
   docs-actions:
     status: todo
-    comment: The integration provides no actions yet.
+    comment: >-
+      recipe_wizard.set_shopping_list is done -- services.yaml, strings.json and a
+      section of docs/integration.md with a YAML example. The rule is met when the
+      cook-along actions are documented the same way. Note that hassfest fails an
+      integration that registers an action with no services.yaml entry, so the two
+      files move together.
   docs-conditions:
     status: exempt
     comment: The integration provides no conditions.
@@ -84,17 +89,23 @@ rules:
     status: exempt
     comment: The integration provides no triggers.
   entity-event-setup:
-    status: todo
+    status: done
     comment: >-
-      No entities yet. There is no external event stream to subscribe to; the
-      platforms will subclass CoordinatorEntity, which owns the subscribe and
-      unsubscribe.
+      There is no external event stream to subscribe to. Entities subclass
+      RecipeWizardEntity, hence CoordinatorEntity, which owns the subscribe and
+      unsubscribe; the todo platform's own async_added_to_hass calls super()
+      first and only then reads its store.
   entity-unique-id:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: >-
+      entity.py sets it to the config entry id plus a per-entity key, so it
+      survives the recipe directory being renamed -- the one thing the user
+      configures.
   has-entity-name:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: >-
+      _attr_has_entity_name is on RecipeWizardEntity and every entity takes its
+      visible name from a translation key.
   runtime-data:
     status: done
     comment: >-
@@ -120,11 +131,14 @@ rules:
 
   # --- Silver ---------------------------------------------------------------
   action-exceptions:
-    status: todo
+    status: done
     comment: >-
-      No actions yet. The groundwork is in place -- RecipeLibraryError is a
-      HomeAssistantError carrying a translation key, and strings.json already has
-      the exceptions block.
+      set_shopping_list raises ServiceValidationError with a translation key for
+      each thing the caller can fix -- a name matching no recipe, a name matching
+      several (the message names them), a recipe that will not resolve -- and
+      HomeAssistantError when the library is not loaded. Editing the wording of a
+      computed to-do item raises rather than accepting a change the next refresh
+      would discard.
   config-entry-unloading:
     status: done
     comment: >-
@@ -139,10 +153,12 @@ rules:
     status: done
     comment: docs/integration.md walks the single setup field.
   entity-unavailable:
-    status: todo
+    status: done
     comment: >-
-      No entities yet. UpdateFailed already carries the reason, so a
-      CoordinatorEntity will go unavailable correctly for free.
+      UpdateFailed carries the reason, so CoordinatorEntity handles the library
+      going away. The todo entity adds one condition of its own: a target recipe
+      that no longer resolves makes that list unavailable rather than leaving it
+      showing the last good answer.
   integration-owner:
     status: done
     comment: codeowners is set in the manifest.
@@ -152,19 +168,20 @@ rules:
       DataUpdateCoordinator logs the failure once and the recovery once; the
       integration adds no duplicate logging of its own.
   parallel-updates:
-    status: todo
+    status: done
     comment: >-
-      PARALLEL_UPDATES belongs in each platform module and there are no platform
-      modules yet. It should be 0 -- every read is served from the coordinator's
-      already-loaded library.
+      PARALLEL_UPDATES = 0 in todo.py. Every read is served from the library the
+      coordinator has already loaded, so there is nothing to serialise. Any later
+      platform module needs the same line.
   reauthentication-flow:
     status: exempt
     comment: There are no credentials. Nothing can expire or be revoked.
   test-coverage:
     status: todo
     comment: >-
-      The glue, the loader and the flow are covered by tests_ha; the rule is met
-      when the platforms are covered too.
+      The glue, the loader, the flow and the todo platform are covered by tests_ha
+      (tests_ha/test_todo.py is 27 tests). The rule is met when the sensors are
+      covered too.
 
   # --- Gold -----------------------------------------------------------------
   devices:
@@ -190,10 +207,11 @@ rules:
       docs/integration.md explains the 15-minute scan and that only changed files
       are re-read.
   docs-examples:
-    status: todo
+    status: done
     comment: >-
-      Waiting on the entities, since a useful example is a dashboard or an
-      automation over them.
+      docs/integration.md shows the set_shopping_list action as YAML for a
+      dashboard button, and what each kind of shopping line means against the
+      doubled vanilla cake.
   docs-known-limitations:
     status: done
     comment: >-
@@ -204,7 +222,9 @@ rules:
     comment: No devices.
   docs-supported-functions:
     status: todo
-    comment: There are no entities or actions to document yet.
+    comment: >-
+      docs/integration.md covers the shopping list entity and its action in full.
+      The cook-along sensors are not described yet.
   docs-troubleshooting:
     status: done
     comment: docs/integration.md maps each setup error to what to do about it.
@@ -224,8 +244,10 @@ rules:
     status: todo
     comment: No entities yet.
   entity-translations:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: >-
+      Every entity carries a translation key and strings.json holds the name. The
+      shopping list is entity.todo.shopping_list.
   exception-translations:
     status: done
     comment: >-

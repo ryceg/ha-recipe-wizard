@@ -1,0 +1,37 @@
+# The actions this integration offers, as the UI's action picker needs them. The
+# names, descriptions and field descriptions are not here -- they are in
+# strings.json under `services`, so they can be translated.
+#
+# hassfest fails an integration that registers an action and has no entry here
+# ("Registers services but has no services.yaml"), so a new action needs both
+# files or neither.
+
+# Says which recipe the shopping list is for. Targets the todo entity rather than
+# the config entry: there is one list, and it is the thing being changed.
+set_shopping_list:
+  target:
+    entity:
+      integration: recipe_wizard
+      domain: todo
+  fields:
+    recipe:
+      required: true
+      example: Vanilla cake
+      selector:
+        text:
+    batches:
+      required: false
+      default: 1
+      selector:
+        number:
+          # A quarter batch up. Below that the arithmetic is honest and the
+          # recipe usually is not -- several carry a minimum batch and warn.
+          min: 0.25
+          max: 20
+          step: 0.25
+          mode: box
+    include_optional:
+      required: false
+      default: true
+      selector:
+        boolean:
