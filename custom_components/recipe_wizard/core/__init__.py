@@ -6,6 +6,7 @@ this library, which keeps the resolver testable on its own.
 
 from .adjust import AdjustmentError, apply_adjustments
 from .compare import Comparison, compare
+from .dish import Dish, resolve_dish
 from .importer import import_page, import_url
 from .library import Food, FoodBank, Library, LibraryError
 from .mass import ingredient_mass
@@ -45,6 +46,7 @@ __all__ = [
     "ComponentUse",
     "Comparison",
     "ConsumeRef",
+    "Dish",
     "Finding",
     "Food",
     "FoodBank",
@@ -75,6 +77,7 @@ __all__ = [
     "render_table",
     "resolve",
     "resolve_component",
+    "resolve_dish",
     "rigid_chains",
     "schedule",
     "uses_of",
