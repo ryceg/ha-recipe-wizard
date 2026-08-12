@@ -56,8 +56,8 @@ from .model import (
     RequiredState,
 )
 from .render import format_mass, ingredients_for_step
-from .resolve import Resolution
-from .schedule import DEFAULT_STEP_S, Plan, effective_recipe, schedule
+from .resolve import Resolution, effective_recipe
+from .schedule import DEFAULT_STEP_S, Plan, schedule
 from .units import Quantity
 
 

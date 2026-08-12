@@ -77,12 +77,13 @@ wrong and missed link.
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 145 tests, most of them named after a failure mode |
+| `tests/` | 160 tests, most of them named after a failure mode |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
 with its components), `schedule.py` (constraint solving), `cookalong.py` (what to
 cook now, and what its timer says), `adjust.py` (patch operations), `mass.py`
-(unit reconciliation), `render.py` (the Modernist table), `validate.py`.
+(unit reconciliation, and the one definition of the batch total), `render.py`
+(the Modernist table), `validate.py`.
 
 Tests either build the recipe they need with `tests/support.py`, so the premise
 is visible in the test, or run against the real corpus where the corpus *is* the

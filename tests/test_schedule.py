@@ -4,10 +4,9 @@ import pytest
 from conftest import COFFEE_BC
 
 from custom_components.recipe_wizard.core import check_plan, rigid_chains, schedule
-from custom_components.recipe_wizard.core.resolve import resolve
+from custom_components.recipe_wizard.core.resolve import effective_recipe, resolve
 from custom_components.recipe_wizard.core.schedule import (
     dependencies,
-    effective_recipe,
     topological_order,
 )
 

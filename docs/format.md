@@ -306,6 +306,14 @@ all genuine — a unit divergence, an ambiguous "divided" salt the source never
 accounts for, a storage conflict, and six requests for masses where a volume
 measure is unreliable.
 
+A shaky density is only reported when the ingredient is a meaningful part of the
+batch: nobody weighs 1¼ tsp of cumin, and being 30% out on 2.6 g of a 900 g
+curry buries the findings that matter. **A share is measured against the sum of
+the non-optional inputs** — the same total the resolver treats as the batch —
+which is load-bearing rather than an implementation detail. Divide by every line
+instead and the qeema's optional cayenne and chilli inflate the denominator
+until the ginger it seasons falls under the threshold and goes unreported.
+
 ## Known gaps
 
 * **Doneness reaches the timer, and still drives nothing.** It is carried onto

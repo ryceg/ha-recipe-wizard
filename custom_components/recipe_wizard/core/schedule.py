@@ -18,10 +18,10 @@ A plan that violates either is rejected, not warned about.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
 from .model import Recipe, Step
-from .resolve import Resolution
+from .resolve import Resolution, effective_recipe
 
 
 #: Assumed duration for a step that states none. Shared by ``schedule`` and
@@ -31,31 +31,6 @@ DEFAULT_STEP_S = 60.0
 
 class ScheduleError(ValueError):
     """The step graph is not schedulable — usually a cycle."""
-
-
-def effective_recipe(source: Recipe | Resolution) -> Recipe:
-    """The document a plan or a table is actually true of.
-
-    A ``Recipe`` passes straight through, because a level-0 scrape has no
-    resolution and still has to be planned and rendered. Given a
-    ``Resolution``, this hands back its *effective* recipe — base plus the
-    variant chain plus the parent's local adjustments — carrying the
-    resolution's **scaled** step portions.
-
-    This exists because the coffee buttercream is, on disk, nothing but a patch
-    list: zero ingredients and zero steps. Every caller that reached for
-    ``library.recipe(id)`` and planned or rendered *that* got an empty table
-    and a 0-minute plan. The other half of the same bug was available to any
-    caller holding a recipe *and* a resolution: it read masses off the
-    resolution and portions off the document, so a doubled brownie tray printed
-    500 g of peanut butter beside an unscaled "dollop 2 tbsp". Taking one
-    argument instead of two makes both impossible to write.
-    """
-    if isinstance(source, Recipe):
-        return source
-    if source.steps is source.recipe.steps:
-        return source.recipe
-    return replace(source.recipe, steps=source.steps)
 
 
 @dataclass(slots=True)

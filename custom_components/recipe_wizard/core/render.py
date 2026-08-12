@@ -22,7 +22,7 @@ from textwrap import wrap
 
 from .model import Portion, Recipe, Step
 from .resolve import Resolution
-from .schedule import effective_recipe
+from .resolve import effective_recipe
 
 INFINITY = 10**9
 

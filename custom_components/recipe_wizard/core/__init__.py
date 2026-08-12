@@ -38,18 +38,13 @@ from .resolve import (
     Resolution,
     ResolvedIngredient,
     UnresolvableComponent,
+    effective_recipe,
     materialise,
     resolve,
     resolve_component,
     vessel_warnings,
 )
-from .schedule import (
-    Plan,
-    check_plan,
-    effective_recipe,
-    rigid_chains,
-    schedule,
-)
+from .schedule import Plan, check_plan, rigid_chains, schedule
 from .units import Quantity, UnitError
 from .validate import Finding, validate_library, validate_recipe
 
