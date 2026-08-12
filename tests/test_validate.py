@@ -6,14 +6,22 @@ from support import (
     build_recipe,
     component,
     ingredient,
+    insert_step,
     portion,
     step,
     storage_option,
 )
 
-from custom_components.recipe_wizard.core import validate_library, validate_recipe
+from custom_components.recipe_wizard.core import (
+    validate_library,
+    validate_recipe,
+    worst_level,
+)
+from custom_components.recipe_wizard.core.__main__ import _report, main
+from custom_components.recipe_wizard.core.adjust import apply_adjustments
+from custom_components.recipe_wizard.core.graph import recipe_graph
 from custom_components.recipe_wizard.core.model import ConsumeRef, Portion
-from custom_components.recipe_wizard.core.validate import ERROR
+from custom_components.recipe_wizard.core.validate import ERROR, WARNING, Finding
 
 
 def test_the_library_has_no_errors(library):
@@ -25,6 +33,140 @@ def test_the_library_has_no_errors(library):
     """
     errors = [f for f in validate_library(library) if f.level == ERROR]
     assert errors == [], "\n".join(str(f) for f in errors)
+
+
+# ---------------------------------------------------------------------------
+# A finding names the node, not only the document
+# ---------------------------------------------------------------------------
+
+
+def test_a_finding_names_the_node_and_not_only_the_recipe(library, brownies):
+    """The brownies' "divided" salt flakes: a real gap in a real source.
+
+    Every finding used to carry the recipe id and nothing else, so the only thing
+    saying *which* of the document's ten ingredient rows was under-portioned was
+    the English message -- and two of the ten are salt. The corpus is being lifted
+    from level 0 by a skill iterating against this module, and a skill that wants
+    to fix ``#salt-flakes`` should not have to parse a sentence to learn its name.
+    """
+    finding = next(f for f in validate_recipe(brownies, library)
+                   if f.code == "portions-under-whole")
+
+    assert finding.recipe == brownies.id
+    assert finding.node == "#salt-flakes"
+    found = recipe_graph(brownies).node(finding.node)
+    assert (found.label, found.is_ingredient) == ("salt flakes", True), \
+        "canonical under the library's one lookup rule, so a caller can resolve it"
+    assert "#salt-flakes" in str(finding), "and a human still gets one clear line"
+
+
+def test_a_node_id_in_a_finding_survives_a_step_inserted_above_it():
+    """Which is the whole reason it is worth carrying one.
+
+    ``docs/format.md`` Principle 5: ``#step-3`` breaks every patch targeting it
+    the moment a step is inserted above, and ``apply_adjustments`` renumbers every
+    position after an insert. A finding that located its node positionally would
+    be stale before the skill got round to acting on it.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#preheat", text="Preheat the oven."),
+            step("#mix", consumes=["#flour"], produces=("#batter", "Batter")),
+            step("#bake", consumes=["#batter"], produces=("#loaf", "Loaf")),
+        ],
+        adjustments=[insert_step(step("#grease", text="Grease the tin."),
+                                 after="#preheat")],
+    )
+    library = build_library(recipe)
+
+    def dangling(document):
+        return {f.node for f in validate_recipe(document, library)
+                if f.code == "dangling-step"}
+
+    assert dangling(recipe) == {"#preheat"}
+    assert recipe.step("#bake").position == 3
+
+    patched, _ = apply_adjustments(recipe, recipe.adjustments)
+
+    assert patched.step("#bake").position == 4, "every position after it moved"
+    assert "#preheat" in dangling(patched), "and the node is still the same node"
+
+
+def test_a_component_finding_names_the_use_and_not_the_sub_recipe(library, cake):
+    """The cake's storage conflict is about the cake's *use* of the buttercream.
+
+    Sending a fixer at ``urn:recipe:rte/vanilla-buttercream`` would send them at a
+    document that is not wrong -- the buttercream really does want the fridge. The
+    node is ``#frosting``, where the parent's overrides already live.
+    """
+    finding = next(f for f in validate_recipe(cake, library)
+                   if f.code == "storage-conflict")
+
+    assert finding.node == "#frosting"
+    assert recipe_graph(cake).node(finding.node).is_component
+
+
+# ---------------------------------------------------------------------------
+# One report shape: scheduling defects are findings too
+# ---------------------------------------------------------------------------
+
+
+def test_a_scheduling_defect_reaches_the_validation_report():
+    """It could not, before. ``validate_recipe`` never called ``check_plan``.
+
+    So a document whose constraints contradict each other validated clean and
+    misbehaved only when somebody thought to ask for a plan -- and the enrichment
+    skill's loop reads ``--validate``. A three-hour floor and a back-to-back
+    ceiling on the same edge cannot both hold.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces=("#batter", "Batter")),
+            step("#bake", consumes=["#batter"], produces=("#loaf", "Loaf"),
+                 min_delay_after=[("#mix", "PT1H", "it has to prove")],
+                 max_delay_after=[("#mix", "PT0S", "the bubbles subside")]),
+        ],
+    )
+    findings = validate_recipe(recipe, build_library(recipe))
+
+    codes = {f.code for f in findings}
+    assert "schedule-unsettled" in codes
+    assert {f.node for f in findings if f.code == "schedule-max-delay"} == {"#bake"}
+    assert worst_level(findings) == ERROR
+
+
+def test_a_scrape_is_not_asked_about_constraints_it_never_declared(library, level0):
+    """The plan check is gated with every other graph rule, for the same reason.
+
+    A level-0 document has step text and no ids, so anything a planner said about
+    it would be about a graph the document never claimed to have.
+    """
+    assert not [f for f in validate_recipe(level0, library)
+                if f.code.startswith("schedule-")]
+
+
+def test_the_exit_status_is_the_skill_loops_stop_signal():
+    """``worst_level`` was deleted as dead code; it is back with a caller.
+
+    The loop iterates ``--validate`` until there are no errors, and until this
+    existed it had to read the printed count back out of stdout to find out
+    whether it was done. Warnings deliberately do *not* fail it: a warning
+    reflecting a genuine ambiguity in the source is the correct outcome, and a
+    loop trying to clear one would invent data.
+    """
+    where = "urn:recipe:test/x"
+    warning = Finding(WARNING, "unit-divergence", where, "18% apart", "#butter")
+    error = Finding(ERROR, "dangling-consume", where, "no such node", "#mix")
+
+    assert worst_level([]) is None
+    assert worst_level([warning]) == WARNING
+    assert worst_level([warning, error]) == ERROR, "the worst wins, not the last"
+
+    assert _report([warning]) == 0, "a genuine ambiguity is not a failure"
+    assert _report([warning, error]) == 1
+    assert main(["--list", "--validate"]) == 0, "the corpus has no errors today"
 
 
 # ---------------------------------------------------------------------------

@@ -51,7 +51,17 @@ No dependencies beyond the standard library; `pytest` only for the tests.
 python -m recipe_wizard --import <URL> > recipes/<slug>.json   # faithful level 0
 # enrich it -- see .claude/skills/enrich-recipe/SKILL.md
 python -m recipe_wizard <slug> --validate                      # iterate to zero errors
-python -m recipe_wizard <slug> --plan                          # catches what the validator can't
+python -m recipe_wizard <slug> --plan                          # read the order and the timings
+```
+
+`--validate` exits non-zero while any finding is an error, so an enrichment loop
+is driven by the exit status rather than by reading the printed count. Warnings
+are for a human and do not fail it. Every finding names the node a fix goes on,
+so acting on one does not start by parsing the sentence:
+
+```
+[warning] urn:recipe:rte/peanut-butter-stuffed-brownies #salt-flakes: steps
+account for only 50% of #salt-flakes, and no step takes the remainder
 ```
 
 The importer reads the page's own schema.org JSON-LD, so no quantity is ever
@@ -77,7 +87,7 @@ wrong and missed link.
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 186 tests, most of them named after a failure mode |
+| `tests/` | 194 tests, most of them named after a failure mode |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
 with its components), `schedule.py` (constraint solving), `cookalong.py` (what to

@@ -139,6 +139,10 @@ direction: cut the brownies straight out of the oven.
 free, and under backward scheduling lands at the end — which is how the brownies
 came to preheat the oven *after* baking. The validator flags these.
 
+Everything else a plan can be wrong about — a delay broken, a lead that cannot be
+met, two constraints that cannot both hold — comes back as a finding under a
+`schedule-*` code, from `--plan` and `--validate` alike. See § Validation.
+
 Hands-on and hands-off totals are computed by sweeping the timeline, not summing
 durations, which double-counts overlapping branches.
 
@@ -316,6 +320,48 @@ all genuine — a unit divergence, an ambiguous "divided" salt the source never
 accounts for, a storage conflict, and six requests for masses where a volume
 measure is unreliable.
 
+**A finding is one record, and it names a node.** The consumer is an enrichment
+skill before it is a person, so `Finding` carries a severity, a stable `code`, the
+document it is about, and the **node** a fix would be applied to: a step id, an
+ingredient id, a component id, or nothing where the finding really is about the
+whole document — a variant cycle, or a recipe no step produces a result for, have
+no one node to point at, and inventing one would send a fixer at the wrong place.
+The node is canonical under `graph.py`'s single id rule, so a caller can hand it
+straight back to `RecipeGraph.node` and get the thing. It used to be the recipe id
+and prose: *"steps account for only 50% of #salt-flakes"* said which of the
+brownies' ten ingredient rows to edit in English and nowhere else — and two of
+them are salt. `__str__` still prints one line per finding, with the node in it.
+
+A finding about a component names the **use**, not the sub-recipe — the cake's
+`#frosting`, not `urn:recipe:rte/vanilla-buttercream`, which is a different
+document and usually not the one that is wrong.
+
+**Scheduling defects are findings too, under `schedule-*` codes.** There used to
+be a second, parallel record — `schedule.Violation(kind, step_id, message)`, which
+was the one that carried a node — and a third shape besides, the planner's list of
+bare strings. Nothing converted between them and `validate_recipe` never called
+`check_plan`, so a document whose constraints contradicted each other validated
+clean and misbehaved only when somebody thought to ask for a plan. `--validate`
+now plans the document and checks it against its own plan: the planner satisfies
+what it can, and `schedule-max-delay`, `schedule-min-delay`,
+`schedule-out-of-order`, `schedule-insufficient-lead`, `schedule-unknown-lead` and
+`schedule-unsettled` name what it could not. All are errors — a plan that breaks a
+`maxDelayAfter` is rejected, not warned about. Gated at level 2 with the other
+graph rules, because a scrape declares no constraints to contradict. It adds
+nothing to today's corpus: still nine findings.
+
+**The exit status is the roll-up.** `worst_level` returns the most serious level
+present, and `--validate` exits non-zero when that is an error, so the enrichment
+loop can ask whether it is finished instead of parsing the printed count out of
+stdout. Warnings do not fail it, on purpose: a warning reflecting a genuine
+ambiguity in the source is the *correct* outcome, and a loop trying to clear one
+would invent data.
+
+**Not built: a JSON report.** What the skill's loop needs is a node it can jump
+to, a stable code and a severity, and it has all three off one printed line plus
+an exit status. A serialisation layer would be a second interface to keep true to
+the first, for a consumer that already has what it asked for.
+
 A shaky density is only reported when the ingredient is a meaningful part of the
 batch: nobody weighs 1¼ tsp of cumin, and being 30% out on 2.6 g of a 900 g
 curry buries the findings that matter. **A share is measured against the sum of
@@ -343,6 +389,14 @@ until the ginger it seasons falls under the threshold and goes unreported.
   who cannot be in two `active` steps at once, and a reading of `rw:makeAhead`
   as a scheduling constraint rather than a note. Until those exist, interleaving
   would be invention dressed as a plan.
+* **`Resolution.warnings` is still a list of bare strings.** The vessel-capacity
+  message and the batch-policy renormalisations are the last part of the report
+  that is not a `Finding`, and they are stuck there for a reason that is not the
+  validator's: `dish.all_warnings()` hands them out as `(label, text)` pairs and
+  its callers do substring tests on `text`, so converting them is a signature
+  change across `dish.py`, `cookalong.py` and their tests rather than a rule
+  change. Doing it would also have to answer what a resolver finding's *node* is
+  when the subject is a tin that is too small.
 * **Conditional steps.** *"If the liquid evaporates excessively, add water."*
 * **Package-relative quantities.** *"¾ cup coconut milk (~½ can)"* — the other
   half-can is a real pantry problem.

@@ -19,11 +19,19 @@ the four indexes this module used to rebuild: "known id" was a set of *literal*
 ``urn:recipe:rte/vanilla-cake#frosting`` -- legal, since identity lives in
 ``@id`` -- was reported as ``dangling-consume``. A rule that fires spuriously is
 worse than a rule that does not exist.
+
+``Finding`` is the whole of that contract, and it is the only shape in it.
+``schedule.py`` used to carry a second, parallel record -- ``Violation(kind,
+step_id, message)`` -- which was structurally the same idea and was the one that
+named a *node*, and nothing converted between them, so a scheduling defect could
+not appear in a validation report at all. It is one record now, produced by both
+modules and printed by one function.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
 
 from .adjust import AdjustmentError
 from .graph import RecipeGraph, recipe_graph
@@ -36,11 +44,15 @@ from .resolve import (
     materialise,
     resolve_component,
 )
-from .schedule import ScheduleError, topological_order
+from .schedule import ScheduleError, check_plan, schedule, topological_order
 
 ERROR = "error"
 WARNING = "warning"
 INFO = "info"
+
+#: The severities, most serious first. This ordering *is* the roll-up, and the
+#: roll-up is an exit code -- see ``worst_level``.
+SEVERITIES = (ERROR, WARNING, INFO)
 
 #: Fractions of one thing may sum slightly over 1 -- "just over half" twice is
 #: how sources actually write it -- but not by much.
@@ -57,15 +69,66 @@ PORTION_TOLERANCE = 0.1
 NEGLIGIBLE_SHARE = 0.01
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class Finding:
+    """One defect, and the node a fix to it would be applied to.
+
+    ``node`` is why this record exists in this shape. The library is being lifted
+    from level 0 by an enrichment skill iterating against this module, so a
+    finding is read by an agent before it is read by a person -- and until this
+    field existed, the only thing that named the node was the English message.
+    The brownies report *"steps account for only 50% of #salt-flakes"*, and a
+    skill that wanted to fix that one ingredient row had to parse the sentence to
+    find out which of the document's ten rows to edit -- two of which are salt.
+
+    It holds a step id, an ingredient id, a component id, or ``None``, and always
+    as ``graph.py`` files it: ``RecipeGraph.canonical`` for a consumed target, the
+    node's own ``@id`` everywhere else. So the id is canonical under the library's
+    one lookup rule and a caller can hand it straight back to ``RecipeGraph.node``
+    or ``RecipeGraph.step`` and get the thing. ``None`` means the finding really
+    is about the whole document -- a variant cycle, or a recipe no step produces a
+    result for, have no single node to point at, and inventing one would send a
+    fixer at the wrong place.
+
+    ``recipe`` is the document the finding is about. Usually a recipe's ``@id``;
+    for the two cross-document rules in ``validate_library`` it is the *family's*,
+    because the family is the document that is wrong and the member it names goes
+    in ``node``.
+    """
+
     level: str
     code: str
-    where: str
+    recipe: str
     message: str
+    node: str | None = None
 
     def __str__(self) -> str:
-        return f"[{self.level:7}] {self.where}: {self.message}"
+        """One readable line for a human reading ``--validate``.
+
+        The node is printed and not merely carried. The same line is what the
+        enrichment skill reads off stdout, and a person diagnosing the brownies'
+        salt wants to see ``#salt-flakes`` without re-reading the sentence to
+        find it.
+        """
+        subject = self.recipe if self.node is None else f"{self.recipe} {self.node}"
+        return f"[{self.level:7}] {subject}: {self.message}"
+
+
+def worst_level(findings: Iterable[Finding]) -> str | None:
+    """The most serious level present, or ``None`` for a clean report.
+
+    Reintroduced with a caller rather than because it used to exist: ``__main__``
+    turns it into the process exit status, so the enrichment skill's loop can ask
+    "are there errors yet" with the exit code of ``python -m recipe_wizard <slug>
+    --validate`` instead of scraping the printed count back out of stdout.
+    ``docs/format.md`` § Scope: the validator is the contract, and an agent
+    iterating against a contract has to be able to put a yes/no question to it.
+    """
+    present = {finding.level for finding in findings}
+    for level in SEVERITIES:
+        if level in present:
+            return level
+    return None
 
 
 def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
@@ -78,8 +141,8 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
     # per-target portion grouping by walking every step again.
     graph = recipe_graph(recipe)
 
-    def add(severity: str, code: str, message: str) -> None:
-        findings.append(Finding(severity, code, where, message))
+    def add(severity: str, code: str, message: str, node: str | None = None) -> None:
+        findings.append(Finding(severity, code, where, message, node))
 
     # -- Always ---------------------------------------------------------
     try:
@@ -103,9 +166,9 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
             result = masses.result(ing.id)
             for warning in result.warnings:
                 if "disagree" in warning:
-                    add(WARNING, "unit-divergence", warning)
+                    add(WARNING, "unit-divergence", warning, ing.id)
                 else:
-                    add(INFO, "unresolved-mass", warning)
+                    add(INFO, "unresolved-mass", warning, ing.id)
 
             # A shaky density only matters if the ingredient is a meaningful
             # part of the batch. Nobody weighs 1 1/4 tsp of cumin, and being
@@ -123,11 +186,12 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
                 if result.reason == FORM_UNKNOWN:
                     add(INFO, "missing-form",
                         f"{ing.name!r} is measured by volume and its density "
-                        "depends on the cut or pack; give rw:form or a mass")
+                        "depends on the cut or pack; give rw:form or a mass",
+                        ing.id)
                 else:
                     add(INFO, "low-confidence-density",
                         f"{ing.name!r} is measured by volume and its density is "
-                        "not well known; prefer a mass here")
+                        "not well known; prefer a mass here", ing.id)
 
     # -- Level 2: ingredients linked to steps ---------------------------
     if level >= 2:
@@ -135,22 +199,29 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
             if step.id.lstrip("#").startswith("step-"):
                 add(WARNING, "positional-step-id",
                     f"{step.id!r} is positional; patches targeting it break when a "
-                    "step is inserted above. Use a semantic id.")
+                    "step is inserted above. Use a semantic id.", step.id)
 
         # "Known" is now one question with one answer: does the graph hold a node
         # under this reference, in any of the three id namespaces? It used to be
         # a set built here and a second, differently-built set at level 3.
         for use in graph.edges:
             if graph.node(use.ref) is None:
+                # The *step* is the node, not the reference: a dangling
+                # ``rw:consumes`` names nothing, so there is nothing to look up
+                # under it, and the edit that fixes it is made on the step's own
+                # consumes list. The reference stays quoted in the message, in the
+                # author's own spelling.
                 add(ERROR, "dangling-consume",
                     f"{use.step.id} consumes {use.ref!r}, which is not an "
-                    "ingredient, a component, or produced by any step")
+                    "ingredient, a component, or produced by any step",
+                    use.step.id)
 
         consumed = graph.consumed_ids
         for ing in recipe.ingredients:
             if ing.id not in consumed:
                 add(WARNING, "unused-ingredient",
-                    f"{ing.name!r} ({ing.id}) is never consumed by any step")
+                    f"{ing.name!r} ({ing.id}) is never consumed by any step",
+                    ing.id)
 
         findings.extend(_portion_findings(graph, where))
 
@@ -170,12 +241,17 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
             add(WARNING, "dangling-step",
                 f"nothing depends on {step.id}, so it has no place in the plan "
                 "and will be scheduled arbitrarily; give it a rw:produces that "
-                "something consumes, or a rw:leadBefore on the step that needs it")
+                "something consumes, or a rw:leadBefore on the step that needs it",
+                step.id)
 
         try:
             topological_order(graph)
         except ScheduleError as exc:
+            # No node: a cycle is a property of a *set* of steps, and naming one
+            # of them would send a fixer at whichever happened to sort first.
             add(ERROR, "step-cycle", str(exc))
+        else:
+            findings.extend(_schedule_findings(graph))
 
     # -- Level 3: components and a full graph ---------------------------
     if level >= 3:
@@ -183,7 +259,7 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
             if comp.id not in graph.consumed_ids:
                 add(WARNING, "unused-component",
                     f"component {comp.label!r} ({comp.id}) is never consumed by "
-                    "any step")
+                    "any step", comp.id)
 
         # The *dataflow* end: products nothing takes, and steps that take
         # something and emit nothing. The third of the three notions of the end,
@@ -211,6 +287,12 @@ def _portion_findings(graph: RecipeGraph, where: str) -> list[Finding]:
     graph already does: two steps taking 90% of the same thing under two
     spellings of its id is the exact error this rule exists to catch, and a
     grouping keyed on the raw reference would have reported neither.
+
+    The key of that grouping is also the ``node`` every finding here carries. It
+    is ``graph.canonical(ref)``, so the thing named is the id the row is filed
+    under and not whichever of two legal spellings the last step happened to use
+    -- which is what makes ``#salt-flakes`` something a caller can look up rather
+    than a phrase in a sentence.
     """
     findings: list[Finding] = []
 
@@ -221,7 +303,7 @@ def _portion_findings(graph: RecipeGraph, where: str) -> list[Finding]:
             findings.append(Finding(
                 ERROR, "multiple-remainders", where,
                 f"{ref} is claimed as 'the rest' by {len(remainders)} steps; only "
-                "one step can take the remainder"))
+                "one step can take the remainder", ref))
 
         fractions = [p.fraction for p in portions if p.fraction is not None]
         if fractions:
@@ -229,20 +311,47 @@ def _portion_findings(graph: RecipeGraph, where: str) -> list[Finding]:
             if total > 1 + PORTION_TOLERANCE:
                 findings.append(Finding(
                     ERROR, "portions-exceed-whole", where,
-                    f"steps take {total:.0%} of {ref} between them"))
+                    f"steps take {total:.0%} of {ref} between them", ref))
             elif total < 1 - PORTION_TOLERANCE and not remainders:
                 findings.append(Finding(
                     WARNING, "portions-under-whole", where,
                     f"steps account for only {total:.0%} of {ref}, and no step "
-                    "takes the remainder - is a use missing?"))
+                    "takes the remainder - is a use missing?", ref))
 
         wholes = [p for p in portions if p.is_whole]
         if wholes and len(uses) > 1:
             findings.append(Finding(
                 WARNING, "unportioned-multiple-use", where,
                 f"{ref} is used by {len(uses)} steps but {len(wholes)} of them "
-                "claim all of it; add rw:portion"))
+                "claim all of it; add rw:portion", ref))
     return findings
+
+
+def _schedule_findings(graph: RecipeGraph) -> list[Finding]:
+    """Everything only a plan can tell you about a document.
+
+    These checks existed and could not be reached from ``--validate``. The
+    planner already reported an unsatisfiable constraint and a ``rw:leadBefore``
+    naming no step, and ``check_plan`` already reported every delay a set of
+    start times breaks -- and both went out as shapes nothing else in the report
+    used, so a recipe whose constraints contradict each other validated clean and
+    misbehaved only when somebody thought to ask for a plan.
+
+    Planning a document and then checking it against its own plan is not
+    circular. The planner satisfies what it can; ``check_plan`` names what it
+    could not, which is exactly the pair of contradictory constraints the "did not
+    settle" warning was gesturing at without saying which. Both run against the
+    graph this module has already built, so the report and the plan cannot be
+    about two different documents -- the mistake ``effective_recipe`` exists to
+    prevent, one level up.
+
+    Nothing relabels the findings on the way out: both modules read the recipe id
+    off the same graph, so they cannot disagree about which document they are
+    about.
+    """
+    plan = schedule(graph)
+    starts = {step.step_id: step.start_s for step in plan.steps}
+    return [*plan.findings, *check_plan(graph, starts)]
 
 
 def _component_findings(
@@ -250,35 +359,39 @@ def _component_findings(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    def add(severity: str, code: str, message: str) -> None:
-        findings.append(Finding(severity, code, where, message))
+    # Every finding in here is about one ``rw:ComponentUse``, and the use's own
+    # ``@id`` is what a fixer edits -- not the sub-recipe's id, which is a
+    # different document and usually not the one that is wrong. The cake's butter
+    # override lives on the use; the buttercream on disk is fine.
+    def add(severity: str, code: str, message: str, node: str) -> None:
+        findings.append(Finding(severity, code, where, message, node))
 
     for comp in recipe.components:
         if comp.recipe_ref and comp.recipe_ref not in library.recipes:
             if comp.citation:
                 add(INFO, "cited-component",
                     f"{comp.label!r} is a citation, not a document: not expandable "
-                    "and excluded from shopping lists")
+                    "and excluded from shopping lists", comp.id)
             else:
                 add(ERROR, "missing-component",
                     f"{comp.label!r} references {comp.recipe_ref!r}, which is not "
-                    "in the library")
+                    "in the library", comp.id)
             continue
         try:
             resolution = resolve_component(library, comp)
         except UnresolvableComponent:
             add(INFO, "cited-component",
-                f"{comp.label!r} is cited but not resolvable")
+                f"{comp.label!r} is cited but not resolvable", comp.id)
             continue
         except BatchConstraintError as exc:
-            add(ERROR, "batch-constraint", str(exc))
+            add(ERROR, "batch-constraint", str(exc), comp.id)
             continue
         except (AdjustmentError, LibraryError) as exc:
-            add(ERROR, "component-error", str(exc))
+            add(ERROR, "component-error", str(exc), comp.id)
             continue
 
         for warning in resolution.warnings:
-            add(WARNING, "component-warning", f"{comp.label}: {warning}")
+            add(WARNING, "component-warning", f"{comp.label}: {warning}", comp.id)
 
         # Storage conflicts. An overlap on one method does not clear the
         # conflict: the buttercream says refrigerate and the cake says do not,
@@ -293,7 +406,8 @@ def _component_findings(
                 f"{'/'.join(sorted(parent_methods))})"
                 + (" - parent declared authoritative"
                    if recipe.storage_overrides_components
-                   else "; declare rw:storageOverridesComponents to resolve"))
+                   else "; declare rw:storageOverridesComponents to resolve"),
+                comp.id)
     return findings
 
 
@@ -303,16 +417,21 @@ def validate_library(library: Library) -> list[Finding]:
     for recipe in library:
         findings.extend(validate_recipe(recipe, library))
 
+    # A family is not a recipe, and these two are the only findings whose subject
+    # is not one: the family's own ``@id`` goes in ``recipe`` because the family is
+    # the document that is wrong, and the member it names goes in ``node``, because
+    # that is the reference an author has to delete or correct.
     for family_id, family in library.families.items():
         for member in family.members:
             if member not in library.recipes:
                 findings.append(Finding(
                     ERROR, "missing-family-member", family_id,
-                    f"member {member!r} is not in the library"))
+                    f"member {member!r} is not in the library", member))
         if family.default and family.default not in library.recipes:
             findings.append(Finding(
                 ERROR, "missing-family-default", family_id,
-                f"default {family.default!r} is not in the library"))
+                f"default {family.default!r} is not in the library",
+                family.default))
 
     for recipe in library:
         try:

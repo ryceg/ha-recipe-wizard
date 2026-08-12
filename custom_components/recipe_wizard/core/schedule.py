@@ -22,14 +22,32 @@ in the passes while ``_edge_gap`` looked the same target up tolerantly -- so a
 fully-qualified ``rw:from`` drew no edge and quietly lost the wait it carried.
 Every step reference here is resolved through ``graph.step_id`` before it is used
 as a key.
+
+**Defects here are ``validate.Finding``s and nothing else.** This module used to
+carry its own record -- ``Violation(kind, step_id, message)`` -- plus a list of
+bare strings on ``Plan``, which made three shapes for one idea across two
+modules, and it was *this* one that named the node. Nothing converted between
+them and ``validate_recipe`` never called ``check_plan``, so a document whose
+constraints contradicted each other passed validation and misbehaved only when
+somebody asked for a plan.
+
+``Finding`` lives in ``validate.py`` because that module is the contract
+(``docs/format.md`` § Scope) and scheduling is one producer of it, not its owner.
+That direction means the import has to be made inside the two functions that
+build findings: ``validate`` imports this module at the top, so a module-level
+import back would be a cycle. It is one lookup in ``sys.modules`` per call.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from .graph import GraphSource, RecipeGraph, recipe_graph
 from .model import Step, fragment
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .validate import Finding
 
 
 #: Assumed duration for a step that states none. Shared by ``schedule`` and
@@ -65,20 +83,22 @@ class ScheduledStep:
 
 
 @dataclass(slots=True)
-class Violation:
-    kind: str
-    step_id: str
-    message: str
-
-
-@dataclass(slots=True)
 class Plan:
     steps: list[ScheduledStep] = field(default_factory=list)
     total_s: float = 0.0
     active_s: float = 0.0
     unattended_s: float = 0.0
     rigid_chains: list[list[str]] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
+    """What the planner could not do, in the report's one shape.
+
+    Was ``warnings: list[str]``, which was a third shape for the idea
+    ``Finding`` and ``Violation`` were already two of, and it was the wrong word
+    besides: a ``rw:leadBefore`` pointing at no step and a pair of constraints
+    that cannot both hold are errors -- the plan that comes back is wrong, not
+    merely uncertain -- and the CLI printed them next to a validation report that
+    counted its errors and did not count these.
+    """
     _by_id: dict[str, ScheduledStep] | None = field(
         default=None, repr=False, compare=False
     )
@@ -255,6 +275,10 @@ def schedule(
     topological walk, solved here by alternating a forward earliest-start pass
     with a backward just-in-time pass until nothing moves.
     """
+    # Deferred, not a cycle: see the module docstring. ``validate`` imports this
+    # module at the top, so the record it owns has to be fetched at call time.
+    from .validate import ERROR, Finding
+
     # One graph, indexed once, for every pass below. The dependency map used to
     # be rebuilt three times per call and the id index twice.
     graph = recipe_graph(source)
@@ -262,7 +286,8 @@ def schedule(
     deps = graph.dependencies
     ordered = topological_order(graph)
     by_id = graph.steps_by_id
-    warnings: list[str] = []
+    where = recipe.id or recipe.name
+    findings: list[Finding] = []
 
     def duration_of(step: Step) -> float:
         return step.duration.seconds if step.duration else default_step_s
@@ -314,9 +339,11 @@ def schedule(
                 # author who mistyped a step id has to see their own spelling.
                 lead_id = graph.step_id(lead_ref)
                 if lead_id is None or lead_id not in start:
-                    warnings.append(
-                        f"{step.id} requires lead from unknown step {lead_ref!r}"
-                    )
+                    findings.append(Finding(
+                        ERROR, "schedule-unknown-lead", where,
+                        f"{step.id} requires lead from unknown step {lead_ref!r}",
+                        step.id,
+                    ))
                     continue
                 required = start[lead_id] + lead.seconds
                 if start[step.id] < required - 1e-9:
@@ -326,10 +353,15 @@ def schedule(
             break
         start, end = forward()
     else:
-        warnings.append(
+        # No node: the defect is a *pair* of constraints that cannot both hold,
+        # and the loop does not know which two. ``check_plan`` on the plan this
+        # returns does, and names the step it broke at -- which is the reason
+        # ``validate`` runs both.
+        findings.append(Finding(
+            ERROR, "schedule-unsettled", where,
             "scheduling constraints did not settle; the plan may violate a "
-            "maxDelayAfter. This usually means two constraints contradict."
-        )
+            "maxDelayAfter. This usually means two constraints contradict.",
+        ))
 
     if strategy == "just-in-time":
         latest = _latest_pass(graph, ordered, start, end, duration_of)
@@ -360,7 +392,7 @@ def schedule(
         active_s=active,
         unattended_s=unattended,
         rigid_chains=rigid_chains(graph),
-        warnings=warnings,
+        findings=findings,
     )
 
 
@@ -392,18 +424,29 @@ def check_plan(
     starts: dict[str, float],
     *,
     default_step_s: float = DEFAULT_STEP_S,
-) -> list[Violation]:
+) -> list[Finding]:
     """Reject a proposed set of start times.
 
     This is the guard against a planner deciding the batter can be made ahead.
-    Given start times in seconds, it returns every constraint they break.
+    Given start times in seconds, it returns every constraint they break, as
+    findings under ``schedule-*`` codes.
+
+    Every one is an ERROR, which is what this function has always meant: a plan
+    that breaks a ``maxDelayAfter`` is rejected, not warned about, because the
+    cake it produces is dense and the brownies ooze. Each finding names the step
+    whose start time is wrong in ``node``, which is the field the old
+    ``Violation.step_id`` was and the reason the two records had to become one.
 
     Takes the same ``Recipe | Resolution`` as ``schedule``, so a plan and the
     check on it cannot be run against two different documents.
     """
+    # Deferred, not a cycle: see the module docstring.
+    from .validate import ERROR, Finding
+
     graph = recipe_graph(source)
     recipe = graph.recipe
-    violations: list[Violation] = []
+    where = recipe.id or recipe.name
+    findings: list[Finding] = []
 
     def finish(ref: str) -> float | None:
         """When the step ``ref`` names ends, given the proposed starts.
@@ -427,23 +470,27 @@ def check_plan(
                 continue
             gap = starts[step.id] - predecessor_end
             if gap < 0:
-                violations.append(
-                    Violation(
-                        "out-of-order",
-                        step.id,
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "schedule-out-of-order",
+                        where,
                         f"{step.id} starts before {constraint.from_step} finishes",
+                        step.id,
                     )
                 )
             elif gap > constraint.limit.seconds + 1e-9:
                 allowed = constraint.limit.human()
-                violations.append(
-                    Violation(
-                        "max-delay",
-                        step.id,
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "schedule-max-delay",
+                        where,
                         f"{step.id} starts {gap / 60:.0f} min after "
                         f"{constraint.from_step}, but the gap must be at most "
                         f"{allowed}"
                         + (f" - {constraint.reason}" if constraint.reason else ""),
+                        step.id,
                     )
                 )
         for constraint in step.min_delay_after:
@@ -452,14 +499,16 @@ def check_plan(
                 continue
             gap = starts[step.id] - predecessor_end
             if gap < constraint.limit.seconds - 1e-9:
-                violations.append(
-                    Violation(
-                        "min-delay",
-                        step.id,
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "schedule-min-delay",
+                        where,
                         f"{step.id} starts {gap / 60:.0f} min after "
                         f"{constraint.from_step}, but must wait at least "
                         f"{constraint.limit.human()}"
                         + (f" - {constraint.reason}" if constraint.reason else ""),
+                        step.id,
                     )
                 )
         for lead_ref, lead in step.lead_before.items():
@@ -468,12 +517,17 @@ def check_plan(
                 continue
             actual_lead = starts[step.id] - starts[lead_id]
             if actual_lead < lead.seconds - 1e-9:
-                violations.append(
-                    Violation(
-                        "insufficient-lead",
-                        step.id,
+                # ``node`` is the step that *needs* the lead, not the one that has
+                # to start earlier: the ``rw:leadBefore`` is written on this step,
+                # so this is the node an author edits.
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "schedule-insufficient-lead",
+                        where,
                         f"{lead_ref} starts only {actual_lead / 60:.0f} min before "
                         f"{step.id}, but needs {lead.human()}",
+                        step.id,
                     )
                 )
-    return violations
+    return findings

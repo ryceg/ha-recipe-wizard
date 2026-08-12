@@ -12,7 +12,7 @@ from .library import Library
 from .render import render_table
 from .resolve import UnresolvableComponent
 from .schedule import schedule
-from .validate import ERROR, WARNING, validate_library, validate_recipe
+from .validate import ERROR, WARNING, validate_library, validate_recipe, worst_level
 
 
 def _find(library: Library, needle: str):
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         for family in library.families.values():
             print(f"{family.name:38} {family.id}  [family of {len(family.members)}]")
         if args.validate:
-            _report(validate_library(library))
+            return _report(validate_library(library))
         return 0
 
     recipe = _find(library, args.recipe)
@@ -136,15 +136,18 @@ def main(argv: list[str] | None = None) -> int:
             print(line)
         for chain in plan.rigid_chains:
             print("  no pause allowed: " + " -> ".join(chain))
-        for warning in plan.warnings:
-            print(f"  ! {warning}")
+        # The same shape ``--validate`` prints, because it is the same record.
+        # ``--plan`` used to print bare strings behind a "!", so the two halves of
+        # one report looked like two unrelated tools.
+        for finding in plan.findings:
+            print(f"  {finding}")
 
     if args.cook:
         _cook(dish)
 
     if args.validate:
         print()
-        _report(validate_recipe(recipe, library))
+        return _report(validate_recipe(recipe, library))
 
     return 0
 
@@ -217,12 +220,22 @@ def _compare(library: Library, candidate_path: str, reference_id: str | None) ->
     return 0
 
 
-def _report(findings) -> None:
+def _report(findings) -> int:
+    """Print the report and hand back the exit status the roll-up implies.
+
+    The status is the point. The enrichment skill's loop iterates against
+    ``--validate`` until there are no errors, and until this returned something it
+    had to read the printed count back out of stdout to find out whether it was
+    done. One error is a non-zero exit; warnings and info are not, because a
+    warning reflecting a genuine ambiguity in the source is the *correct* outcome
+    and the loop must not try to silence it.
+    """
     for finding in findings:
         print(finding)
     errors = sum(1 for f in findings if f.level == ERROR)
     warnings = sum(1 for f in findings if f.level == WARNING)
     print(f"\n{len(findings)} findings ({errors} errors, {warnings} warnings)")
+    return 1 if worst_level(findings) == ERROR else 0
 
 
 if __name__ == "__main__":

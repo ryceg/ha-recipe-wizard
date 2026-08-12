@@ -20,16 +20,37 @@ python -m recipe_wizard --import <URL> > recipes/<slug>.json
 
 # 2. Enrich the file in place (see below).
 
-# 3. Validate. Iterate until there are zero errors.
+# 3. Validate. Iterate until there are zero errors: this exits non-zero while
+#    any finding is an error, so the exit status is the signal.
 python -m recipe_wizard <slug> --validate
 
-# 4. Read the plan. It catches things the validator cannot.
+# 4. Read the plan. Whether the order and the timings are what the source meant
+#    is a judgement no rule makes for you.
 python -m recipe_wizard <slug> --plan
 ```
 
-**Stop when there are zero errors.** Warnings are for a human to read; do not
-silence one by inventing data. A warning that reflects a genuine ambiguity in
-the source is the correct outcome.
+**Stop when there are zero errors** — which is what a zero exit status from step 3
+means. Warnings are for a human to read; do not silence one by inventing data. A
+warning that reflects a genuine ambiguity in the source is the correct outcome.
+
+### Reading a finding
+
+Each one is a single line, and the field after the recipe id is the **node** to
+edit:
+
+```
+[warning] urn:recipe:rte/peanut-butter-stuffed-brownies #salt-flakes: steps
+account for only 50% of #salt-flakes, and no step takes the remainder
+```
+
+Go straight to that `@id` — an ingredient row, a step, or a `rw:ComponentUse` in
+this document — instead of working out from the sentence which one is meant. No
+node means the finding is about the whole document. The severity and the code are
+stable and the wording is not, so key on the code if you key on anything.
+
+A finding under a `schedule-*` code comes from planning the document: a delay
+broken, a `rw:leadBefore` naming no step, two constraints that cannot both hold.
+They are errors, and the fix goes on the constraint — never on the plan.
 
 ## Step 2 in detail
 
