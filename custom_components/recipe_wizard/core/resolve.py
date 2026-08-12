@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 
 from .adjust import apply_adjustments
 from .library import Library
-from .mass import ingredient_mass
+from .mass import MassTable, mass_table
 from .model import (
     Adjustment,
     BatchPolicy,
@@ -70,6 +70,16 @@ class ResolvedIngredient:
     optional: bool = False
     to_taste: bool = False
     required_state: RequiredState | None = None
+    preparation: str | None = None
+    """What the cook does to it: "melted", "softened", "finely chopped".
+
+    Carried through from the document because the shopping list merges on
+    ``rw:food`` and deliberately *not* on preparation. Melted butter and
+    softened butter are one line to buy and two things to have ready, so a
+    merged row has to be able to name the preparations it swallowed. It reaches
+    the resolved form here rather than being looked back up on the unscaled
+    document, which for a component is the wrong document anyway.
+    """
     note: str | None = None
     confidence: str = "high"
     display: str | None = None
@@ -196,39 +206,38 @@ def materialise(
 
 
 def batch_yield_grams(
-    recipe: Recipe, library: Library
-) -> tuple[float | None, list[str], dict[str, float | None]]:
-    """Step 4. Returns the yield, any warnings, and each ingredient's mass.
+    recipe: Recipe, masses: MassTable
+) -> tuple[float | None, list[str]]:
+    """Step 4. Returns the yield and whatever deciding it had to say.
 
     ``sumOfInputs`` is exact for anything uncooked and close enough elsewhere
     with a loss factor: Modernist's carrot soup sums to 1325.5 g against a
     stated 1.3 kg, which is the ~2% the pressure cooker takes off.
+
+    The masses arrive already computed. This used to reduce every line itself
+    and hand the grams back as a third return value, which made it the only
+    place a caller could get them -- so the caller took the flat
+    ``dict[str, float | None]`` and lost the warnings, the sources and the
+    confidences with it, then reduced every line a second time to read one of
+    them back. The yield decision is real domain logic and stays here; owning
+    the arithmetic that feeds it was never part of the job.
+
+    The warnings returned are this decision's own. The per-line ones belong to
+    the table, where they can be reported exactly once.
     """
     warnings: list[str] = []
-    masses: dict[str, float | None] = {}
-    total = 0.0
-    for ing in recipe.ingredients:
-        result = ingredient_mass(
-            ing,
-            library.foods,
-            recipe.measurement_system,
-            canonical=recipe.canonical_unit_system,
-        )
-        masses[ing.id] = result.grams
-        warnings.extend(result.warnings)
-        if result.grams is not None and not ing.optional:
-            total += result.grams
+    total = masses.input_total_g
 
     if recipe.yield_basis in ("sumOfInputs", "measured"):
         if recipe.yield_basis == "sumOfInputs":
-            return total * (1 - recipe.mass_loss_factor), warnings, masses
+            return total * (1 - recipe.mass_loss_factor), warnings
 
     for quantity in recipe.stated_yield:
         try:
             if quantity.dimension == "mass":
                 from .units import to_grams
 
-                return to_grams(quantity), warnings, masses
+                return to_grams(quantity), warnings
         except Exception:  # noqa: BLE001 - a bad yield unit is not fatal here
             continue
 
@@ -237,15 +246,15 @@ def batch_yield_grams(
             f"{recipe.name!r} states no mass yield; falling back to the sum of "
             f"its inputs ({total:.0f} g)"
         )
-        return total * (1 - recipe.mass_loss_factor), warnings, masses
-    return None, warnings, masses
+        return total * (1 - recipe.mass_loss_factor), warnings
+    return None, warnings
 
 
 def _apply_batch_policy(
     recipe: Recipe,
     policy: BatchPolicy,
     raw_scale: float,
-    masses: dict[str, float | None],
+    masses: MassTable,
 ) -> tuple[float, list[str]]:
     """Step 7. Reconcile a fractional scale with things that come in whole units."""
     warnings: list[str] = []
@@ -277,7 +286,7 @@ def _apply_batch_policy(
             return raw_scale, warnings
         base_count = ing.count.value if ing.count is not None else None
         if base_count is None and ing.unit_mass is not None:
-            base_mass = masses.get(ing.id)
+            base_mass = masses.grams(ing.id)
             if base_mass:
                 base_count = base_mass / ing.unit_mass.value
         if not base_count:
@@ -332,7 +341,13 @@ def resolve(
     propagates as a plain factor with no geometry involved.
     """
     recipe, change_log = materialise(library, recipe_id, adjustments=adjustments)
-    batch_yield, warnings, masses = batch_yield_grams(recipe, library)
+
+    # Every line reduced to grams once, after the patches and before the scale.
+    # The yield, the base masses and each line's confidence all read from here.
+    masses = mass_table(recipe, library.foods)
+    warnings = list(masses.warnings)
+    batch_yield, yield_warnings = batch_yield_grams(recipe, masses)
+    warnings.extend(yield_warnings)
 
     # Steps 5 and 6: what does the caller need, and what factor is that?
     requested_g: float | None = None
@@ -357,15 +372,12 @@ def resolve(
     resolved: list[ResolvedIngredient] = []
     produced = 0.0
     for ing in recipe.ingredients:
-        base = masses.get(ing.id)
+        result = masses.result(ing.id)
+        base = result.grams
         factor = _scale_factor_for(ing.scaling, scale)
         scaled = None if base is None else base * factor
         if scaled is not None and not ing.optional:
             produced += scaled
-        result = ingredient_mass(
-            ing, library.foods, recipe.measurement_system,
-            canonical=recipe.canonical_unit_system,
-        )
         resolved.append(
             ResolvedIngredient(
                 id=ing.id,
@@ -377,6 +389,7 @@ def resolve(
                 optional=ing.optional,
                 to_taste=ing.to_taste,
                 required_state=ing.required_state,
+                preparation=ing.preparation,
                 note=ing.note,
                 confidence=result.confidence,
                 display=str(ing.volume) if ing.volume else None,
