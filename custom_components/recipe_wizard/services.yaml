@@ -1,13 +1,32 @@
-# The actions this integration offers, as the UI's action picker needs them. The
-# names, descriptions and field descriptions are not here -- they are in
-# strings.json under `services`, so they can be translated.
+# The four cook-along actions. Names and descriptions live in strings.json, so
+# nothing user-facing is written twice; this file is the shape of the call.
 #
-# hassfest fails an integration that registers an action and has no entry here
-# ("Registers services but has no services.yaml"), so a new action needs both
-# files or neither.
+# None of them takes a target or an entry id: single_config_entry is true in the
+# manifest, so there is one recipe library and the handler finds it.
 
-# Says which recipe the shopping list is for. Targets the todo entity rather than
-# the config entry: there is one list, and it is the thing being changed.
+start_cook_along:
+  fields:
+    recipe_id:
+      required: true
+      example: brownies
+      selector:
+        text:
+    batches:
+      required: false
+      default: 1
+      selector:
+        number:
+          min: 0.25
+          max: 20
+          step: 0.25
+          mode: box
+
+next_step:
+
+previous_step:
+
+stop_cook_along:
+
 set_shopping_list:
   target:
     entity:

@@ -108,7 +108,7 @@ wrong and missed link.
 | `docs/adr/` | Decisions a future reader would otherwise undo |
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
-| `custom_components/recipe_wizard/` | The integration itself: the config flow, the coordinator, the glue |
+| `custom_components/recipe_wizard/` | The integration itself: the config flow, the coordinator, the cook-along sensors and actions |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
 | `tests/` | 226 tests, most of them named after a failure mode |
 | `tests_ha/` | The integration suite. Needs Home Assistant, so it runs on its own |
@@ -175,9 +175,19 @@ Full reasoning in [`docs/format.md`](docs/format.md).
 
 ## The integration
 
-The Home Assistant custom integration is set up and does not exist yet in equal
-measure: the config flow, the coordinator and the glue are in place, and no entity
-is. Installing and configuring it is [`docs/integration.md`](docs/integration.md);
+The cook-along is on a screen. Two sensors and four actions:
+`sensor.recipe_wizard_current_step` — whose state is a position, `12/16`, because a
+step's text can exceed the 255 characters a state allows and would then silently
+stop updating — carries the step, what it needs at this batch size, the timer line,
+the doneness, the attention and whether the cook may stop after it;
+`sensor.recipe_wizard_step_timer` is a `timestamp` a dashboard renders as a
+countdown, and is deliberately blank for a step that states no time or whose timer
+starts on something happening at the bench. `start_cook_along`, `next_step`,
+`previous_step` and `stop_cook_along` move the cursor, which lives in the config
+entry's options so a restart during the brownies' three-hour chill comes back to
+the chill.
+
+Installing and configuring it is [`docs/integration.md`](docs/integration.md);
 `custom_components/recipe_wizard/quality_scale.yaml` says where it stands against
 the Home Assistant quality scale, exemption by exemption.
 
@@ -188,25 +198,27 @@ enforced by `tests/test_packaging.py`). And every call into the library goes
 through `hass.async_add_executor_job`, because `Library.load()` reads files.
 
 The suites cannot share an interpreter — the Home Assistant test harness's autouse
-fixtures attach to every test in the session and all 220 library tests error — so
+fixtures attach to every test in the session and all 226 library tests error — so
 there are two:
 
 ```bash
 python -m pytest -q                                          # the library, bare Python
+
+docker build -t rw-hass-test tests_ha                        # once
 docker run --rm -v "$(pwd):/app" -w /app rw-hass-test \
     python -m pytest -q -o asyncio_mode=auto tests_ha        # the integration
 ```
 
 The second one is a container because the harness cannot run on Windows at all
-(`homeassistant.runner` imports `fcntl`). Both run in CI, with `hassfest` and HACS
-validation beside them.
+(`homeassistant.runner` imports `fcntl`), and because it needs a few requirements
+the harness does not install — `tests_ha/Dockerfile` says which and why.
+`-o asyncio_mode=auto` is not optional. Both suites run in CI, with `hassfest` and
+HACS validation beside them.
 
 ## Next
 
-* Entities per recipe and step timers, over the `cookalong.py` cursor: the
-  integration holds "which step am I on" and asks `CookAlong.at(cursor)` what that
-  step is; a `TodoListEntity` over `shopping.py`, whose lines are plain data with
-  no `TodoItem` in them. Both hang off `entry.runtime_data.coordinator`.
+* A `TodoListEntity` over `shopping.py`, whose lines are plain data with no
+  `TodoItem` in them, hanging off the same `entry.runtime_data.coordinator`.
 * Enrichment skills lifting scraped recipes from level 0 to level 3, iterating
   against the validator until it is clean.
 * The gaps listed at the end of the format doc — doneness actually *holding* a

@@ -15,8 +15,10 @@ from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.recipe_wizard import PLATFORMS
 from custom_components.recipe_wizard.const import CONF_RECIPES_DIR, DOMAIN
 from tests_ha.support import write_recipe
 
@@ -41,6 +43,19 @@ async def test_the_library_is_parsed_in_the_executor(
     coordinator = loaded_entry.runtime_data.coordinator
     assert coordinator.last_update_success
     assert coordinator.recipe_count == len(coordinator.data)
+
+
+async def test_every_listed_platform_actually_sets_its_entities_up(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+):
+    """``PLATFORMS`` is a list of strings rather than ``Platform`` members (ADR
+    0002 forbids importing the enum here), so a typo in one is not a name error --
+    it is a platform that forwards to nothing and an entity that never appears."""
+    assert PLATFORMS
+    entities = er.async_get(hass).entities.get_entries_for_config_entry_id(
+        loaded_entry.entry_id
+    )
+    assert {entity.domain for entity in entities} == set(PLATFORMS)
 
 
 async def test_unloading_leaves_the_entry_unloaded(

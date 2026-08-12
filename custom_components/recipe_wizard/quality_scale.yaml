@@ -19,19 +19,24 @@
 #   Every call from the integration goes through `hass.async_add_executor_job`,
 #   and Platinum's `async-dependency` is the accepted price.
 #
-# The remaining entity rules are `todo` only where the platform they are about has
-# not landed yet. The todo platform (the shopping list) is in; the sensors are not.
+# Both platforms are in place -- the cook-along sensors and the shopping list -- so
+# the entity and action rules below are answered rather than deferred. What is left
+# is listed honestly: brands needs an asset nobody has drawn, icons need one shared
+# icons.json holding both platforms' keys, and reconfiguration is a real gap.
+# The sensor platform and the four cook-along actions are in place, so the entity
+# and action rules below are answered rather than deferred. What is left is listed
+# honestly: brands needs an asset nobody has drawn, icons need one shared
+# icons.json that every platform's keys go in, and reconfiguration is a real gap.
 
 rules:
   # --- Bronze ---------------------------------------------------------------
   action-setup:
     status: done
     comment: >-
-      Actions register in async_setup, not async_setup_entry, so an automation
-      calling one is told the entry is not loaded rather than that the action
-      does not exist. No action is registered yet; the seam is marked in
-      __init__.py and is deliberately not stubbed, because an action that exists
-      and does nothing can be automated against.
+      The four cook-along actions register in async_setup (actions.py, called from
+      __init__.py), not async_setup_entry, so an automation calling one while the
+      entry is retrying is told the entry is not loaded rather than that the action
+      does not exist. Each handler resolves the one loaded entry itself.
   appropriate-polling:
     status: done
     comment: >-
@@ -47,9 +52,12 @@ rules:
   common-modules:
     status: done
     comment: >-
-      The coordinator is in coordinator.py, shared loading is in loader.py, and
-      entity.py holds the base entity every platform subclasses -- the unique-id
-      scheme and the single service device entry live there once.
+      The coordinator is in coordinator.py, shared loading in loader.py, and the
+      base entity in entity.py -- which owns the unique-id scheme and the one
+      service device, so neither platform invents its own.
+      The coordinator is in coordinator.py, shared loading in loader.py, and the
+      base entity in entity.py -- which owns the unique-id scheme and the one
+      service device, so no platform invents its own.
   config-flow: done
   config-flow-test-coverage:
     status: done
@@ -64,13 +72,17 @@ rules:
       custom_components/recipe_wizard/core/ and is stdlib-only, so there is no
       third-party code to be transparent about.
   docs-actions:
-    status: todo
+    status: done
     comment: >-
-      recipe_wizard.set_shopping_list is done -- services.yaml, strings.json and a
-      section of docs/integration.md with a YAML example. The rule is met when the
-      cook-along actions are documented the same way. Note that hassfest fails an
-      integration that registers an action with no services.yaml entry, so the two
-      files move together.
+      docs/integration.md documents all five actions -- the four cook-along ones and
+      set_shopping_list -- their fields and what each refuses to do, in the same
+      plain language as the rest of that file. Note that hassfest fails an
+      integration that registers an action with no services.yaml entry, so those two
+      files always move together.
+    status: done
+    comment: >-
+      docs/integration.md documents all four actions, their fields and what each
+      refuses to do, in the same plain language as the rest of that file.
   docs-conditions:
     status: exempt
     comment: The integration provides no conditions.
@@ -91,21 +103,34 @@ rules:
   entity-event-setup:
     status: done
     comment: >-
-      There is no external event stream to subscribe to. Entities subclass
-      RecipeWizardEntity, hence CoordinatorEntity, which owns the subscribe and
-      unsubscribe; the todo platform's own async_added_to_hass calls super()
-      first and only then reads its store.
+      There is no external event stream. RecipeWizardEntity subclasses
+      CoordinatorEntity, which owns the library subscription. Both platforms add
+      their own on top through async_on_remove: the sensors subscribe to the cursor,
+      and the todo platform's async_added_to_hass calls super() first and only then
+      reads its store.
   entity-unique-id:
     status: done
     comment: >-
-      entity.py sets it to the config entry id plus a per-entity key, so it
-      survives the recipe directory being renamed -- the one thing the user
-      configures.
+      entity.py sets it to the config entry id plus a key written in code, so
+      moving or renaming the recipe directory -- the one thing the user configures
+      -- does not orphan every dashboard card pointing at these entities.
   has-entity-name:
     status: done
     comment: >-
-      _attr_has_entity_name is on RecipeWizardEntity and every entity takes its
-      visible name from a translation key.
+      _attr_has_entity_name is set once, on the base entity in entity.py, and every
+      entity takes its visible name from a translation key.
+      There is no external event stream. RecipeWizardEntity subclasses
+      CoordinatorEntity, which owns the library subscription, and the cook-along
+      sensors add their cursor subscription in async_added_to_hass through
+      async_on_remove.
+  entity-unique-id:
+    status: done
+    comment: >-
+      entry_id plus a key written in code ("current_step", "step_timer"), so moving
+      the recipe folder does not orphan every dashboard card pointing at them.
+  has-entity-name:
+    status: done
+    comment: _attr_has_entity_name is set once, on the base entity in entity.py.
   runtime-data:
     status: done
     comment: >-
@@ -133,12 +158,18 @@ rules:
   action-exceptions:
     status: done
     comment: >-
-      set_shopping_list raises ServiceValidationError with a translation key for
-      each thing the caller can fix -- a name matching no recipe, a name matching
-      several (the message names them), a recipe that will not resolve -- and
-      HomeAssistantError when the library is not loaded. Editing the wording of a
-      computed to-do item raises rather than accepting a change the next refresh
-      would discard.
+      ServiceValidationError for everything a cook can fix -- a name matching no
+      recipe, a name matching three (the message names them), moving with nothing on
+      the go, stepping back from the first step -- and HomeAssistantError for a
+      document that will not resolve or a library that is not loaded. Every message
+      is a translation key naming the recipe or the position it is about. Editing
+      the wording of a computed to-do item raises rather than accepting a change the
+      next refresh would discard.
+      ServiceValidationError for what a cook can fix -- a recipe id that matches
+      nothing or matches three, moving with nothing on the go, stepping back from
+      the first step -- and HomeAssistantError for a document that will not
+      resolve. Every message is a translation key in strings.json and names the
+      recipe or the position it is about.
   config-entry-unloading:
     status: done
     comment: >-
@@ -156,9 +187,15 @@ rules:
     status: done
     comment: >-
       UpdateFailed carries the reason, so CoordinatorEntity handles the library
-      going away. The todo entity adds one condition of its own: a target recipe
-      that no longer resolves makes that list unavailable rather than leaving it
-      showing the last good answer.
+      going away for every entity. Each platform adds one condition of its own: a
+      shopping target that no longer resolves makes that list unavailable rather
+      than showing the last good answer, while a recipe deleted from under a running
+      cook-along reports unknown with a problem attribute -- there the library is
+      fine and only the position is not.
+      Both sensors are CoordinatorEntity subclasses, so a library that will not
+      load makes them unavailable with UpdateFailed's reason attached. A recipe
+      deleted from under a running cook-along is different and reports unknown with
+      a problem attribute, because the library is fine and the position is not.
   integration-owner:
     status: done
     comment: codeowners is set in the manifest.
@@ -170,18 +207,27 @@ rules:
   parallel-updates:
     status: done
     comment: >-
-      PARALLEL_UPDATES = 0 in todo.py. Every read is served from the library the
-      coordinator has already loaded, so there is nothing to serialise. Any later
-      platform module needs the same line.
+      PARALLEL_UPDATES = 0 in both sensor.py and todo.py. Every read is served from
+      the library the coordinator has already loaded and the cook-along the cursor
+      has already resolved, so there is nothing to serialise. Any later platform
+      module needs the same line.
+      PARALLEL_UPDATES = 0 in sensor.py. Every read is served from the library the
+      coordinator has already loaded and the cook-along the cursor has already
+      resolved, so there is nothing to serialise.
   reauthentication-flow:
     status: exempt
     comment: There are no credentials. Nothing can expire or be revoked.
   test-coverage:
-    status: todo
+    status: done
     comment: >-
-      The glue, the loader, the flow and the todo platform are covered by tests_ha
-      (tests_ha/test_todo.py is 27 tests). The rule is met when the sensors are
-      covered too.
+      tests_ha covers the glue, the loader, the flow, both cook-along sensors, the
+      shopping list and all five actions -- including that no property touches the
+      library, that the dish is resolved once for a cursor that only moves, and that
+      both the cursor and a half-done shopping trip survive a restart.
+      tests_ha covers the glue, the loader, the flow, both cook-along sensors and
+      all four actions -- including that no property touches the library, that the
+      dish is resolved once for a cursor that only moves, and that the cursor
+      survives an unload and set-up again.
 
   # --- Gold -----------------------------------------------------------------
   devices:
@@ -209,9 +255,12 @@ rules:
   docs-examples:
     status: done
     comment: >-
-      docs/integration.md shows the set_shopping_list action as YAML for a
-      dashboard button, and what each kind of shopping line means against the
-      doubled vanilla cake.
+      docs/integration.md carries a cook-along dashboard card over the sensor's
+      attributes, an automation that announces a step's estimated timer, the
+      set_shopping_list action as YAML for a dashboard button, and what each kind of
+      shopping line means against the doubled vanilla cake.
+      docs/integration.md carries a cook-along dashboard card over the sensor's
+      attributes and an automation that announces a step's estimated timer.
   docs-known-limitations:
     status: done
     comment: >-
@@ -221,10 +270,14 @@ rules:
     status: exempt
     comment: No devices.
   docs-supported-functions:
-    status: todo
+    status: done
     comment: >-
-      docs/integration.md covers the shopping list entity and its action in full.
-      The cook-along sensors are not described yet.
+      docs/integration.md lists both sensors, every attribute worth reading, the
+      shopping list entity, and all five actions.
+    status: done
+    comment: >-
+      docs/integration.md lists both sensors, every attribute worth reading, and
+      the four actions.
   docs-troubleshooting:
     status: done
     comment: docs/integration.md maps each setup error to what to do about it.
@@ -235,19 +288,31 @@ rules:
     status: exempt
     comment: No devices.
   entity-category:
-    status: todo
-    comment: No entities yet.
+    status: exempt
+    comment: >-
+      Neither sensor is diagnostic or configuration. The cook-along is what the
+      integration is for, so filing it under a category would hide the primary
+      surface behind a disclosure triangle.
   entity-device-class:
-    status: todo
-    comment: No entities yet.
+    status: done
+    comment: >-
+      The step timer is a timestamp, which is what makes a dashboard render it as a
+      countdown. The current step has no applicable class -- there is no device
+      class for "which page of a recipe" -- and inventing one would be worse than
+      none.
   entity-disabled-by-default:
-    status: todo
-    comment: No entities yet.
+    status: exempt
+    comment: >-
+      Two entities, and both are the point. The rule exists for noisy or expensive
+      entities; these cost one already-loaded library between them.
   entity-translations:
     status: done
     comment: >-
-      Every entity carries a translation key and strings.json holds the name. The
-      shopping list is entity.todo.shopping_list.
+      Every entity sets a translation_key and strings.json carries the entity block
+      -- sensor.current_step, sensor.step_timer, todo.shopping_list. No name is
+      written in Python.
+      Both sensors set a translation_key and strings.json carries the entity block.
+      No name is written in Python.
   exception-translations:
     status: done
     comment: >-
@@ -255,7 +320,10 @@ rules:
       strings.json carries the matching exceptions block.
   icon-translations:
     status: todo
-    comment: Arrives with the entities, which is what there is to give icons to.
+    comment: >-
+      Needs one icons.json holding every platform's entity keys and every action,
+      so it is written once when the platforms are all in rather than merged from
+      two half-files.
   reconfiguration-flow:
     status: todo
     comment: >-

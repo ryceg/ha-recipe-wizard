@@ -82,6 +82,13 @@ jobs:
           python -m pip install \
             "homeassistant==${HOMEASSISTANT_VERSION}" \
             "pytest-homeassistant-custom-component==${HARNESS_VERSION}"
+          # The todo platform reaches homeassistant.components.todo, which
+          # registers intents and so imports the conversation component, which
+          # imports camera. The harness does not install other components'
+          # manifest requirements, so a missing one surfaces as an unrelated
+          # ModuleNotFoundError ("No module named 'turbojpeg'").
+          # tests_ha/Dockerfile installs the same list for the local runner.
+          python -m pip install hassil home-assistant-intents mutagen PyTurboJPEG
 
       - name: Integration suite
         # ``-o asyncio_mode=auto`` is required: without it every test errors on the

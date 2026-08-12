@@ -25,6 +25,14 @@
       "shopping_list": {
         "name": "Shopping list"
       }
+    },
+    "sensor": {
+      "current_step": {
+        "name": "Current step"
+      },
+      "step_timer": {
+        "name": "Step timer"
+      }
     }
   },
   "exceptions": {
@@ -57,6 +65,27 @@
     },
     "item_gone": {
       "message": "\"{item}\" is no longer on the shopping list."
+    },
+    "not_loaded": {
+      "message": "Recipe Wizard is not set up, or it cannot read your recipe folder at the moment. Check it under Settings, then Devices and services."
+    },
+    "not_cooking": {
+      "message": "No cook-along is running, so there is no step to move to. Start one first."
+    },
+    "already_finished": {
+      "message": "The cook-along has finished. Go back a step to read the last one again, or start another recipe."
+    },
+    "at_the_first_step": {
+      "message": "You are already on the first step."
+    },
+    "no_such_recipe": {
+      "message": "No recipe in your folder matches \"{recipe_id}\"."
+    },
+    "ambiguous_recipe": {
+      "message": "\"{recipe_id}\" matches more than one recipe: {matches}. Say which one you mean."
+    },
+    "cook_along_failed": {
+      "message": "Recipe Wizard could not work out the steps for {recipe_id}: {detail}"
     }
   },
   "services": {
@@ -77,6 +106,32 @@
           "description": "Turn this off to leave out the parts of the recipe marked optional, such as a sauce that goes with it. Optional ingredients inside a part you are still making are kept, because another part may need the same food."
         }
       }
+    },
+    "start_cook_along": {
+      "name": "Start cook-along",
+      "description": "Starts cooking a recipe one step at a time, with every amount worked out for the batch size you are making.",
+      "fields": {
+        "recipe_id": {
+          "name": "Recipe",
+          "description": "Which recipe to cook. Part of its name is enough â€” \"brownies\" â€” as long as it matches only one recipe. If two recipes match, you are told which."
+        },
+        "batches": {
+          "name": "Batches",
+          "description": "How many batches to make. 1 is the recipe as written, 2 doubles it, and halves and quarters are allowed. Doubling a cake doubles its frosting too."
+        }
+      }
+    },
+    "next_step": {
+      "name": "Next step",
+      "description": "Moves on to the next step. After the last step the cook-along reads as finished."
+    },
+    "previous_step": {
+      "name": "Previous step",
+      "description": "Goes back one step, so you can read it again."
+    },
+    "stop_cook_along": {
+      "name": "Stop cook-along",
+      "description": "Ends the cook-along. Nothing happens if none is running."
     }
   }
 }
