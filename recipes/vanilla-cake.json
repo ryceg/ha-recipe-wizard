@@ -1,0 +1,427 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "Recipe",
+  "@id": "urn:recipe:rte/vanilla-cake",
+  "name": "My Very Best Vanilla Cake",
+  "url": "https://www.recipetineats.com/my-very-best-vanilla-cake/",
+  "author": {"@type": "Person", "name": "Nagi Maehashi"},
+  "isBasedOn": "https://www.recipetineats.com/my-very-best-vanilla-cake/",
+
+  "rw:measurementSystem": "AU",
+  "rw:canonicalUnitSystem": "metric",
+  "rw:enrichmentLevel": 3,
+
+  "prepTime": "PT20M",
+  "cookTime": "PT30M",
+  "recipeYield": [
+    {"@type": "QuantitativeValue", "value": 12, "unitText": "servings"},
+    {"@type": "QuantitativeValue", "value": 1120, "unitCode": "GRM", "rw:display": "2 x 560 g layers"}
+  ],
+
+  "rw:yieldBasis": "sumOfInputs",
+  "rw:scalingBasis": {"@id": "#flour"},
+  "rw:massLossFactor": 0.08,
+  "rw:massLossNote": "Baking drives off moisture. The source's own '~560 g per pan' for two pans (1120 g) against ~1218 g of batter implies roughly 8%.",
+
+  "rw:vessel": {
+    "rw:name": "20 cm (8\") round cake pan",
+    "rw:count": 2,
+    "rw:capacity": {"value": 560, "unitCode": "GRM"}
+  },
+  "rw:vesselNote": "Capacity is the source's own '~560 g per pan'. Only consulted when the recipe is scaled — doubling gives ~2.2 kg of batter against 1.12 kg of tin.",
+
+  "rw:storage": [
+    {
+      "rw:method": "room-temperature",
+      "rw:keeps": "P7D",
+      "rw:qualityWindow": "P4D",
+      "rw:qualityNote": "stays properly moist for 4 days; still good on day 7 but drier",
+      "rw:condition": "unless the climate is very hot"
+    },
+    {"rw:method": "frozen", "rw:keeps": "P3M"}
+  ],
+  "rw:storageOverridesComponents": true,
+  "rw:storageConflictNote": "The buttercream component says 'keep covered in the fridge, and frosted cakes stay in the fridge'. This recipe says room temperature is better than refrigerated. That is a direct contradiction between a component and its parent, so the parent's storage is declared authoritative rather than intersected. The validator still reports the conflict — silently picking one is what makes a component with raw egg dangerous.",
+
+  "tool": [
+    {"@type": "HowToTool", "@id": "#cake-pans", "name": "2 x 20 cm (8\") round cake pans"},
+    {"@type": "HowToTool", "@id": "#stand-mixer", "name": "stand mixer with whisk attachment"}
+  ],
+
+  "recipeIngredient": [
+    "2 cups (250g) plain/all-purpose flour",
+    "2 1/2 teaspoons baking powder",
+    "1/4 teaspoon kosher salt",
+    "4 large eggs (50-55g each), at room temperature",
+    "1 1/2 cups (300g) caster/superfine sugar",
+    "115g (1/2 cup/1 stick) unsalted butter, cut into cubes",
+    "1 cup (240ml) full-fat milk",
+    "3 teaspoons vanilla extract",
+    "3 teaspoons vegetable or canola oil",
+    "1 batch vanilla buttercream (see component)"
+  ],
+
+  "rw:ingredients": [
+    {
+      "@id": "#flour",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:flour-plain", "name": "plain flour"},
+      "rw:mass": {"value": 250, "unitCode": "GRM"},
+      "rw:volume": {"value": 2, "unitText": "cup", "rw:display": "2 cups"},
+      "rw:scaling": "linear",
+      "rw:originalText": "2 cups (250g) plain/all-purpose flour"
+    },
+    {
+      "@id": "#baking-powder",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:baking-powder", "name": "baking powder"},
+      "rw:volume": {"value": 2.5, "unitText": "tsp", "rw:display": "2 1/2 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "2 1/2 teaspoons baking powder",
+      "rw:note": "Leavening does not scale linearly with batter mass; pan depth matters more than total volume."
+    },
+    {
+      "@id": "#salt",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:salt-kosher", "name": "kosher salt"},
+      "rw:volume": {"value": 0.25, "unitText": "tsp", "rw:display": "1/4 tsp"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1/4 teaspoon kosher salt",
+      "rw:note": "Volume measures of salt are not portable between brands — Diamond Crystal is about half the mass per spoon of Morton."
+    },
+    {
+      "@id": "#eggs",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:egg-whole-large", "name": "large eggs"},
+      "rw:count": {"value": 4, "unitText": "large"},
+      "rw:unitMass": {"value": 52.5, "unitCode": "GRM"},
+      "rw:discrete": true,
+      "rw:requiredState": {
+        "rw:description": "at room temperature",
+        "rw:leadTime": "PT30M",
+        "rw:procedure": "Fridge-cold eggs can be warmed in warm tap water for 5 minutes."
+      },
+      "rw:scaling": "linear",
+      "rw:originalText": "4 large eggs (50-55g/2 oz each), at room temperature"
+    },
+    {
+      "@id": "#caster-sugar",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:sugar-caster", "name": "caster sugar"},
+      "rw:mass": {"value": 300, "unitCode": "GRM"},
+      "rw:volume": {"value": 1.5, "unitText": "cup", "rw:display": "1 1/2 cups"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1 1/2 cups (300g) caster/superfine sugar"
+    },
+    {
+      "@id": "#butter",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:butter-unsalted", "name": "unsalted butter"},
+      "rw:mass": {"value": 115, "unitCode": "GRM", "rw:display": "115 g / 1/2 cup / 1 stick"},
+      "rw:preparation": "cut into cubes",
+      "rw:scaling": "linear",
+      "rw:originalText": "115g (1/2 cup/1 stick) unsalted butter, cut into cubes",
+      "rw:note": "Same food as the frosting's butter, different required state — melted here, softened there. They merge on a shopping list and must not merge in mise en place."
+    },
+    {
+      "@id": "#milk",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:milk-full-fat", "name": "full-fat milk"},
+      "rw:volume": {"value": 240, "unitCode": "MLT", "rw:display": "1 cup / 240 ml"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1 cup (240ml) full-fat milk",
+      "rw:note": "The source gives 240 ml for '1 cup', which is the US cup, while its dry cups match the 250 ml Australian cup. Recorded in millilitres so the system setting cannot re-interpret it."
+    },
+    {
+      "@id": "#vanilla",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:vanilla-extract", "name": "vanilla extract"},
+      "rw:volume": {"value": 3, "unitText": "tsp", "rw:display": "3 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "3 teaspoons vanilla extract"
+    },
+    {
+      "@id": "#oil",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:oil-vegetable", "name": "vegetable oil"},
+      "rw:volume": {"value": 3, "unitText": "tsp", "rw:display": "3 tsp"},
+      "rw:scaling": "linear",
+      "rw:originalText": "3 teaspoons vegetable or canola oil",
+      "rw:note": "The source explicitly says do not increase this quantity."
+    }
+  ],
+
+  "rw:components": [
+    {
+      "@id": "#frosting",
+      "@type": "rw:ComponentUse",
+      "rw:label": "Vanilla buttercream",
+      "rw:recipe": {"@id": "urn:recipe:rte/vanilla-buttercream"},
+      "rw:family": {"@id": "family:buttercream"},
+      "rw:presentation": "inline",
+      "rw:presentationNote": "Inline rather than linked, because this recipe insists its components are not made ahead — but see makeAhead below, which contradicts that for the frosting specifically.",
+
+      "rw:requires": {"rw:batches": 1},
+      "rw:requiresNote": "The cake never states how much frosting it uses — step 22 only says 'frost between layers and on top and sides'. One batch is what the source means, and doubling the cake doubles this with no geometry involved.",
+
+      "rw:makeAhead": {
+        "rw:maxLead": "P14D",
+        "rw:stateAtUse": "brought to room temperature and beaten on low to re-fluff"
+      },
+
+      "rw:adjustments": [
+        {
+          "@type": "rw:SetQuantity",
+          "rw:target": {"@id": "#butter"},
+          "rw:mass": {"value": 225, "unitCode": "GRM"},
+          "rw:note": "This page states 225 g where the standalone recipe states 250 g, both called '2 sticks' (which is really 226.8 g). That moves the butter:sugar ratio from 1:2.0 to 1:2.22, which is a real difference in stiffness, not rounding noise. Recorded as a local override rather than resolved."
+        }
+      ],
+      "rw:adjustmentProvenance": "importer — asserted from the parent page, not confirmed by a human. Whether this is a genuine variant or an editing artefact cannot be decided from the data.",
+
+      "rw:alternativeFinishes": [
+        "jam and cream, Victoria Sponge style",
+        "chocolate buttercream",
+        "chocolate fudge frosting",
+        "fresh berries and cream",
+        "chocolate mirror glaze",
+        "a dusting of powdered sugar"
+      ],
+      "rw:alternativesNote": "Step 22 offers six mutually exclusive finishes. The dataflow graph is pure AND, so a genuine choice point is not yet expressible; these are carried as text until an OR node exists."
+    }
+  ],
+
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "@id": "#preheat",
+      "position": 1,
+      "text": "Preheat oven to 180C/350F (160C fan). Position shelf in middle of oven.",
+      "rw:attention": "unattended",
+      "totalTime": "PT20M",
+      "tool": [{"@id": "#oven"}]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#prep-pans",
+      "position": 2,
+      "text": "Grease 2 x 20cm (8\") cake pans with butter and line with parchment/baking paper.",
+      "rw:attention": "active",
+      "rw:produces": [{"@id": "#lined-pans", "name": "Lined pans"}],
+      "tool": [{"@id": "#cake-pans"}]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#whisk-dry",
+      "position": 3,
+      "text": "Whisk flour, baking powder, and salt in a large bowl. Set aside.",
+      "rw:consumes": [{"@id": "#flour"}, {"@id": "#baking-powder"}, {"@id": "#salt"}],
+      "rw:produces": [{"@id": "#dry-mix", "name": "Dry mix"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#beat-eggs",
+      "position": 4,
+      "text": "Beat eggs for 30 seconds on speed 6 of a stand mixer with whisk attachment.",
+      "rw:consumes": [{"@id": "#eggs"}],
+      "rw:produces": [{"@id": "#beaten-eggs", "name": "Beaten eggs"}],
+      "rw:attention": "active",
+      "totalTime": "PT30S",
+      "rw:leadBefore": [
+        {"rw:step": {"@id": "#preheat"}, "rw:lead": "PT20M",
+         "rw:reason": "the source requires the oven preheated 20 minutes before the batter is started"}
+      ]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-sugar",
+      "position": 5,
+      "text": "With beater running, pour sugar in over 45 seconds.",
+      "rw:consumes": [{"@id": "#beaten-eggs"}, {"@id": "#caster-sugar"}],
+      "rw:produces": [{"@id": "#egg-sugar", "name": "Egg and sugar mixture"}],
+      "rw:attention": "active",
+      "totalTime": "PT45S"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#beat-to-ribbon",
+      "position": 6,
+      "text": "Beat for 7 minutes on speed 8 until tripled in volume and white/pale.",
+      "rw:consumes": [{"@id": "#egg-sugar"}],
+      "rw:produces": [{"@id": "#aerated-eggs", "name": "Aerated egg foam"}],
+      "rw:attention": "passive",
+      "totalTime": "PT7M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#melt-butter-milk",
+      "position": 7,
+      "text": "While eggs are beating, place butter and milk in a heatproof jug. Microwave on high for 2 minutes to melt butter (or use stovetop).",
+      "rw:consumes": [{"@id": "#butter"}, {"@id": "#milk"}],
+      "rw:produces": [{"@id": "#hot-milk", "name": "Hot buttered milk"}],
+      "rw:attention": "active",
+      "totalTime": "PT2M",
+      "rw:parallelWith": [{"@id": "#beat-to-ribbon"}]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#fold-flour",
+      "position": 8,
+      "text": "Add flour in 3 batches to egg mixture, beating for 5 seconds on speed 1 between each addition. After final addition, beat for 5-10 seconds until no flour is visible, then stop immediately.",
+      "rw:consumes": [{"@id": "#aerated-eggs"}, {"@id": "#dry-mix"}],
+      "rw:produces": [{"@id": "#base-batter", "name": "Base batter"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#combine-liquids",
+      "position": 9,
+      "text": "Pour hot milk, vanilla extract, and oil into the now-empty flour bowl.",
+      "rw:consumes": [{"@id": "#hot-milk"}, {"@id": "#vanilla"}, {"@id": "#oil"}],
+      "rw:produces": [{"@id": "#liquid-mix", "name": "Liquid mixture"}],
+      "rw:attention": "active",
+      "rw:maxDelayAfter": [
+        {
+          "rw:from": {"@id": "#melt-butter-milk"},
+          "rw:limit": "PT1M",
+          "rw:reason": "keeps the melted butter and milk hot; this is why the source melts them while the eggs beat rather than up front"
+        }
+      ]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#temper-batter",
+      "position": 10,
+      "text": "Add approximately 1 1/2 cups (2 ladles) of cake batter to the hot milk. Whisk vigorously until smooth and foamy.",
+      "rw:portionNote": "Found by the portion validator: this step and the next both consumed the whole batter, which cannot both be true. The tempering takes a couple of ladles and the rest goes back in afterwards.",
+      "rw:consumes": [
+        {"@id": "#liquid-mix"},
+        {"@id": "#base-batter", "rw:portion": {
+          "rw:volume": {"value": 1.5, "unitText": "cup"},
+          "rw:approximate": true,
+          "rw:text": "about 1 1/2 cups (2 ladles)"}}
+      ],
+      "rw:produces": [{"@id": "#tempered-liquid", "name": "Tempered liquid"}],
+      "rw:attention": "active",
+      "rw:maxDelayAfter": [
+        {
+          "rw:from": {"@id": "#combine-liquids"},
+          "rw:limit": "PT2M",
+          "rw:reason": "the source requires the milk and butter to still be hot when incorporated; left standing they go cold"
+        }
+      ]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-hot-milk",
+      "position": 11,
+      "text": "Turn beater to speed 1. Slowly pour the hot milk mixture into the cake batter over 15 seconds, then turn beater off.",
+      "rw:consumes": [
+        {"@id": "#tempered-liquid"},
+        {"@id": "#base-batter", "rw:portion": {"rw:remainder": true}}
+      ],
+      "rw:produces": [{"@id": "#combined-batter", "name": "Combined batter"}],
+      "rw:attention": "active",
+      "totalTime": "PT15S"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#final-mix",
+      "position": 12,
+      "text": "Scrape down bowl sides and base. Beat on speed 1 for 10 seconds until batter is smooth and pourable.",
+      "rw:consumes": [{"@id": "#combined-batter"}],
+      "rw:produces": [{"@id": "#finished-batter", "name": "Finished batter"}],
+      "rw:attention": "active",
+      "totalTime": "PT10S"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#pour-pans",
+      "position": 13,
+      "text": "Pour batter evenly into prepared pans (approximately 560g/20 oz per pan).",
+      "rw:consumes": [{"@id": "#finished-batter"}, {"@id": "#lined-pans"}],
+      "rw:produces": [{"@id": "#filled-pans", "name": "Filled pans"}],
+      "rw:attention": "active",
+      "rw:maxDelayAfter": [
+        {
+          "rw:from": {"@id": "#final-mix"},
+          "rw:limit": "PT0S",
+          "rw:reason": "air bubbles subside quickly once mixing stops; a batter left sitting bakes dense"
+        }
+      ]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#bang-pans",
+      "position": 14,
+      "text": "Bang each pan on counter 3 times to knock out large air bubbles.",
+      "rw:consumes": [{"@id": "#filled-pans"}],
+      "rw:produces": [{"@id": "#settled-pans", "name": "Settled pans"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#bake",
+      "position": 15,
+      "text": "Bake for 30 minutes until golden brown and a toothpick inserted into the centre comes out clean.",
+      "rw:consumes": [{"@id": "#settled-pans"}],
+      "rw:produces": [{"@id": "#baked-layers", "name": "Baked layers"}],
+      "rw:attention": "unattended",
+      "totalTime": "PT30M",
+      "tool": [{"@id": "#oven"}],
+      "rw:maxDelayAfter": [
+        {"rw:from": {"@id": "#bang-pans"}, "rw:limit": "PT0S",
+         "rw:reason": "the batter must go straight into a preheated oven"}
+      ],
+      "rw:bakeTimeByVessel": [
+        {"rw:vessel": "3 x 20cm round", "totalTime": "PT22M"},
+        {"rw:vessel": "2 x 23cm round", "totalTime": "PT27M"},
+        {"rw:vessel": "2 x 15.25cm round", "totalTime": "PT26M", "rw:note": "halve the recipe"},
+        {"rw:vessel": "12-cup bundt", "totalTime": "PT1H", "rw:note": "cake will be slightly denser"},
+        {"rw:vessel": "23 x 33cm rectangular", "totalTime": "PT30M"},
+        {"rw:vessel": "24 cupcakes", "rw:note": "see the separate Vanilla Cupcakes recipe"}
+      ],
+      "rw:bakeTimeNote": "A lookup, deliberately not interpolated. Bake time is not a function of batch mass — 3 shallower 20 cm layers take 22 minutes where 2 deeper ones take 30."
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#cool-in-pan",
+      "position": 16,
+      "text": "Remove from oven. Cool in pans for 15 minutes.",
+      "rw:consumes": [{"@id": "#baked-layers"}],
+      "rw:produces": [{"@id": "#part-cooled-layers", "name": "Part-cooled layers"}],
+      "rw:attention": "unattended",
+      "totalTime": "PT15M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#cool-out",
+      "position": 17,
+      "text": "Gently turn out onto cooling racks. For level layers, cool upside down; the slight dome flattens as the cake cools.",
+      "rw:consumes": [{"@id": "#part-cooled-layers"}],
+      "rw:produces": [{"@id": "#cooled-layers", "name": "Cooled cake layers"}],
+      "rw:attention": "unattended",
+      "totalTime": "PT2H"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#assemble",
+      "position": 18,
+      "text": "Once cake layers are fully cool, frost between the layers and on the top and sides with the vanilla buttercream.",
+      "rw:consumes": [{"@id": "#cooled-layers"}, {"@id": "#frosting"}],
+      "rw:produces": [{"@id": "#finished-cake", "name": "Frosted vanilla cake"}],
+      "rw:attention": "active"
+    }
+  ],
+
+  "rw:notes": [
+    "Read the recipe fully before beginning.",
+    "Verify baking powder is fresh and active.",
+    "Follow the steps in order; do not prepare components ahead.",
+    "Do not leave batter sitting once mixing begins; air bubbles subside quickly, resulting in a dense cake.",
+    "Ensure milk and butter are hot when incorporated.",
+    "Keep the mixing bowl at room temperature, not cold.",
+    "Do not add inclusions like sprinkles or blueberries; they sink."
+  ]
+}

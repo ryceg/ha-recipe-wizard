@@ -1,0 +1,135 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "Recipe",
+  "@id": "urn:recipe:rte/vanilla-buttercream",
+  "name": "Vanilla Buttercream",
+  "url": "https://www.recipetineats.com/vanilla-buttercream/",
+  "author": {"@type": "Person", "name": "Nagi Maehashi"},
+  "isBasedOn": "https://www.recipetineats.com/vanilla-buttercream/",
+
+  "rw:family": {"@id": "family:buttercream"},
+  "rw:measurementSystem": "AU",
+  "rw:canonicalUnitSystem": "metric",
+  "rw:enrichmentLevel": 3,
+
+  "prepTime": "PT10M",
+
+  "rw:yieldBasis": "sumOfInputs",
+  "rw:massLossFactor": 0,
+  "rw:scalingBasis": {"@id": "#butter"},
+  "rw:scalingBasisNote": "Stored once. The per-ingredient percentages Modernist prints in its SCALING column are derived from this, not authored, so they cannot drift out of step with the weights.",
+  "rw:note": "The source states no mass yield at all — only what the batch will cover. Yield is therefore derived from the sum of inputs, which is exact for an uncooked mix.",
+
+  "rw:covers": [
+    "a 2 layer 20 cm / 8\" cake (top, sides and inside)",
+    "the top only of a slab cake (23 x 33 cm / 9 x 13\")",
+    "12 cupcakes piped ~3.5 cm / 1.5\" high",
+    "18 cupcakes spread on thickly"
+  ],
+  "rw:coversNote": "The source's own words, shown to the cook and computed with by nothing. Resolving these geometrically was possible and cost about 300 lines; in practice you make one batch and either have a little left or spread it thinner.",
+
+  "rw:batchConstraints": {
+    "rw:minYield": {"value": 300, "unitCode": "GRM"},
+    "rw:reason": "a stand mixer paddle does not reach a smaller volume in a 5 qt bowl",
+    "rw:provenance": "inferred — not stated by the source; confirm before relying on it"
+  },
+
+  "rw:storage": [
+    {"rw:method": "refrigerated", "rw:keeps": "P14D"},
+    {"rw:method": "frozen", "rw:keeps": "P3M"}
+  ],
+
+  "recipeYield": {"@type": "QuantitativeValue", "value": 1, "unitText": "batch"},
+
+  "recipeIngredient": [
+    "250g / 2 sticks unsalted butter, softened",
+    "500g / 1 lb soft icing sugar/powdered sugar, sifted",
+    "3 tsp vanilla extract (or vanilla bean paste)",
+    "2-4 tbsp milk or cream, to adjust thickness if needed"
+  ],
+
+  "rw:ingredients": [
+    {
+      "@id": "#butter",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:butter-unsalted", "name": "unsalted butter"},
+      "rw:mass": {"value": 250, "unitCode": "GRM", "rw:display": "250 g / 2 sticks"},
+      "rw:requiredState": {
+        "rw:description": "softened to room temperature",
+        "rw:leadTime": "PT60M",
+        "rw:procedure": "Leave out of the fridge until it yields to gentle pressure."
+      },
+      "rw:scaling": "linear",
+      "rw:originalText": "250g / 2 sticks unsalted butter, softened",
+      "rw:note": "The source calls 250 g '2 sticks'. Two US sticks are 226.8 g. The cake recipe by the same author calls the same thing 225 g."
+    },
+    {
+      "@id": "#icing-sugar",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:icing-sugar-soft", "name": "soft icing sugar"},
+      "rw:mass": {"value": 500, "unitCode": "GRM", "rw:display": "500 g / 1 lb"},
+      "rw:preparation": "sifted",
+      "rw:scaling": "linear",
+      "rw:originalText": "500g / 1 lb soft icing sugar/powdered sugar, sifted"
+    },
+    {
+      "@id": "#vanilla",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:vanilla-extract", "name": "vanilla extract"},
+      "rw:volume": {"value": 3, "unitText": "tsp", "rw:display": "3 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "3 tsp vanilla extract (or vanilla bean paste)"
+    },
+    {
+      "@id": "#milk",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:milk-full-fat", "name": "milk"},
+      "rw:volume": {"value": 3, "unitText": "tbsp", "rw:display": "2-4 tbsp, if needed"},
+      "rw:optional": true,
+      "rw:scaling": "linear",
+      "rw:originalText": "2-4 tbsp milk or cream, to adjust thickness if needed",
+      "rw:note": "A consistency adjuster, not a structural ingredient — excluded from the yield for that reason. Contrast the chocolate recipe, where milk is a required 1/4 cup."
+    }
+  ],
+
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "@id": "#cream-butter",
+      "position": 1,
+      "text": "Cream butter using paddle attachment on high for 3 minutes until it changes from yellow to almost white and becomes fluffy and creamy.",
+      "rw:consumes": [{"@id": "#butter"}],
+      "rw:produces": [{"@id": "#creamed-butter", "name": "Creamed butter"}],
+      "rw:attention": "passive",
+      "totalTime": "PT3M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-sugar",
+      "position": 2,
+      "text": "Add icing sugar gradually in 3 lots, beating slowly to avoid powder clouds. Once mostly incorporated, beat on high for 3 minutes until fluffy.",
+      "rw:consumes": [{"@id": "#creamed-butter"}, {"@id": "#icing-sugar"}],
+      "rw:produces": [{"@id": "#buttercream-base", "name": "Buttercream base"}],
+      "rw:attention": "active",
+      "totalTime": "PT3M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#finish",
+      "position": 3,
+      "text": "Add vanilla and milk, then beat 30 seconds more. Use milk only if needed to achieve a soft consistency that still holds its form. Use immediately on cooled cakes and cupcakes.",
+      "rw:consumes": [{"@id": "#buttercream-base"}, {"@id": "#vanilla"}, {"@id": "#milk"}],
+      "rw:produces": [{"@id": "#buttercream", "name": "Vanilla buttercream"}],
+      "rw:attention": "active",
+      "totalTime": "PT30S"
+    }
+  ],
+
+  "tool": [{"@type": "HowToTool", "@id": "#stand-mixer", "name": "stand mixer with paddle attachment"}],
+
+  "rw:notes": [
+    "Use soft icing sugar (Australian); pure icing sugar behaves differently.",
+    "The paddle attachment prevents excess aeration better than the whisk attachment.",
+    "Butter must be softened to room temperature."
+  ]
+}

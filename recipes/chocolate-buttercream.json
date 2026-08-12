@@ -1,0 +1,154 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "Recipe",
+  "@id": "urn:recipe:rte/chocolate-buttercream",
+  "name": "Chocolate Buttercream Frosting",
+  "url": "https://www.recipetineats.com/chocolate-buttercream-frosting/",
+  "author": {"@type": "Person", "name": "Nagi Maehashi"},
+  "isBasedOn": "https://www.recipetineats.com/chocolate-buttercream-frosting/",
+
+  "rw:family": {"@id": "family:buttercream"},
+  "rw:measurementSystem": "AU",
+  "rw:canonicalUnitSystem": "metric",
+  "rw:enrichmentLevel": 3,
+
+  "rw:note": "NOT a variant of the vanilla buttercream. Every quantity differs and the method differs: sugar and cocoa go in in two lots rather than three, and milk is a required 1/4 cup rather than an optional thinner. A patch expressing this would be larger than the recipe it patched. Sibling in family:buttercream instead.",
+
+  "rw:yieldBasis": "sumOfInputs",
+  "rw:massLossFactor": 0,
+
+  "recipeYield": {"@type": "QuantitativeValue", "value": 12, "unitText": "servings"},
+
+  "rw:coverageNote": "The source states no coverage at all — only '12 servings', which is not a meaningful unit for frosting. No rw:covers block is asserted, so asking this recipe to frost a specific cake fails loudly rather than guessing. That is the correct behaviour: inventing a coverage figure here would be a fabrication.",
+
+  "recipeIngredient": [
+    "200g / 3/4 cup unsalted butter, softened",
+    "2.5 cups soft icing sugar/powdered sugar, sifted",
+    "1/2 cup unsweetened cocoa powder (preferably Dutch Processed), sifted",
+    "1/4 cup milk (any type)",
+    "1 tsp vanilla extract (optional)"
+  ],
+
+  "rw:ingredients": [
+    {
+      "@id": "#butter",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:butter-unsalted", "name": "unsalted butter"},
+      "rw:mass": {"value": 200, "unitCode": "GRM"},
+      "rw:volume": {"value": 0.75, "unitText": "cup", "rw:display": "3/4 cup"},
+      "rw:requiredState": {
+        "rw:description": "softened to room temperature",
+        "rw:leadTime": "PT60M"
+      },
+      "rw:scaling": "linear",
+      "rw:originalText": "200g / 3/4 cup unsalted butter, softened",
+      "rw:note": "Both source columns are recorded deliberately. The metric column says 200 g; 3/4 AU cup of butter is ~171 g. The importer must not silently pick one — the divergence check reports it."
+    },
+    {
+      "@id": "#icing-sugar",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:icing-sugar-soft", "name": "soft icing sugar"},
+      "rw:volume": {"value": 2.5, "unitText": "cup", "rw:display": "2 1/2 cups"},
+      "rw:preparation": "sifted",
+      "rw:scaling": "linear",
+      "rw:originalText": "2.5 cups soft icing sugar/powdered sugar, sifted",
+      "rw:note": "The source's 'metric' column repeats the cup measure unconverted, so there is no gram figure to trust here."
+    },
+    {
+      "@id": "#cocoa",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:cocoa-powder-dutch", "name": "cocoa powder"},
+      "rw:volume": {"value": 0.5, "unitText": "cup", "rw:display": "1/2 cup"},
+      "rw:preparation": "sifted",
+      "rw:scaling": "linear",
+      "rw:originalText": "1/2 cup unsweetened cocoa powder (preferably Dutch Processed), sifted"
+    },
+    {
+      "@id": "#milk",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:milk-full-fat", "name": "milk"},
+      "rw:volume": {"value": 0.25, "unitText": "cup", "rw:display": "1/4 cup"},
+      "rw:optional": false,
+      "rw:scaling": "linear",
+      "rw:originalText": "1/4 cup milk (any type)",
+      "rw:note": "Structural here, unlike the vanilla recipe where milk is a conditional thinner. This is one of the reasons the two are siblings rather than variants."
+    },
+    {
+      "@id": "#vanilla",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:vanilla-extract", "name": "vanilla extract"},
+      "rw:volume": {"value": 1, "unitText": "tsp", "rw:display": "1 tsp"},
+      "rw:optional": true,
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 tsp vanilla extract (optional)"
+    }
+  ],
+
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "@id": "#cream-butter",
+      "position": 1,
+      "text": "Place butter in stand mixer bowl with paddle attached. Beat 3 minutes on speed 7 until pale.",
+      "rw:consumes": [{"@id": "#butter"}],
+      "rw:produces": [{"@id": "#creamed-butter", "name": "Creamed butter"}],
+      "rw:attention": "passive",
+      "totalTime": "PT3M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-dry-first",
+      "position": 2,
+      "text": "Add half the icing sugar and cocoa powder. Beat 3 minutes, starting slow, increasing to speed 7.",
+      "rw:consumes": [
+        {"@id": "#creamed-butter"},
+        {"@id": "#icing-sugar", "rw:portion": {"rw:fraction": 0.5, "rw:text": "half"}},
+        {"@id": "#cocoa", "rw:portion": {"rw:fraction": 0.5, "rw:text": "half"}}
+      ],
+      "rw:produces": [{"@id": "#partial-mix", "name": "Part-mixed buttercream"}],
+      "rw:attention": "active",
+      "totalTime": "PT3M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-dry-second",
+      "position": 3,
+      "text": "Add remaining icing sugar and cocoa powder. Beat 3 minutes.",
+      "rw:portionNote": "Found by the reverse linkage check, in a file written after the gap was already identified: the sugar and cocoa really are consumed here, as the remaining portion, and before rw:portion existed there was no way to say so.",
+      "rw:consumes": [
+        {"@id": "#partial-mix"},
+        {"@id": "#icing-sugar", "rw:portion": {"rw:remainder": true}},
+        {"@id": "#cocoa", "rw:portion": {"rw:remainder": true}}
+      ],
+      "rw:produces": [{"@id": "#buttercream-base", "name": "Chocolate buttercream base"}],
+      "rw:attention": "passive",
+      "totalTime": "PT3M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#finish",
+      "position": 4,
+      "text": "Add milk and vanilla. Beat 1 minute on speed 7.",
+      "rw:consumes": [{"@id": "#buttercream-base"}, {"@id": "#milk"}, {"@id": "#vanilla"}],
+      "rw:produces": [{"@id": "#buttercream", "name": "Chocolate buttercream"}],
+      "rw:attention": "active",
+      "totalTime": "PT1M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#use",
+      "position": 5,
+      "text": "Spread onto cakes/cupcakes or pipe from frosting bag.",
+      "rw:consumes": [{"@id": "#buttercream"}],
+      "rw:attention": "active"
+    }
+  ],
+
+  "tool": [{"@type": "HowToTool", "@id": "#stand-mixer", "name": "stand mixer with paddle attachment"}],
+
+  "rw:notes": [
+    "Beat for at least 6 minutes total, usually 7 to 8, for optimal fluffiness.",
+    "Use soft icing sugar, not pure icing sugar.",
+    "Dutch-processed cocoa gives a more intense flavour than natural cocoa."
+  ]
+}

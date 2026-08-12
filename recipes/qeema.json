@@ -1,0 +1,271 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "Recipe",
+  "@id": "urn:recipe:rte/qeema",
+  "name": "Qeema (Indian Curried Beef)",
+  "url": "https://www.recipetineats.com/qeema-indian-curried-beef/",
+  "author": {"@type": "Person", "name": "Nagi Maehashi"},
+  "isBasedOn": "https://www.recipetineats.com/qeema-indian-curried-beef/",
+
+  "rw:measurementSystem": "AU",
+  "rw:canonicalUnitSystem": "metric",
+  "rw:enrichmentLevel": 3,
+
+  "prepTime": "PT5M",
+  "cookTime": "PT15M",
+  "recipeYield": [{"@type": "QuantitativeValue", "value": 4, "unitText": "servings"}],
+
+  "rw:yieldBasis": "sumOfInputs",
+  "rw:massLossFactor": 0.2,
+  "rw:massLossNote": "A cup of water goes in and most of it is meant to evaporate. 20% of total input mass is an estimate, not a measurement — the source describes the endpoint by texture, not by weight.",
+  "rw:scalingBasis": {"@id": "#beef"},
+
+  "rw:storage": [
+    {"rw:method": "refrigerated", "rw:keeps": "P3D"},
+    {"rw:method": "frozen", "rw:keeps": "P3M"}
+  ],
+
+  "rw:servesWith": [
+    {"rw:label": "basmati rice", "rw:url": "https://www.recipetineats.com/basmati-rice/"},
+    {"rw:label": "plain white rice", "rw:url": "https://www.recipetineats.com/how-to-cook-rice/"},
+    {"rw:label": "naan", "rw:url": "https://www.recipetineats.com/naan/"},
+    {"rw:label": "flatbreads"},
+    {"rw:label": "shop-bought frozen roti", "rw:resolvable": false}
+  ],
+  "rw:servesWithNote": "Five alternatives, and the qeema is the same dish whichever you pick. A flat display-only list rather than a choice node: nothing here scales with the recipe or belongs on its shopping list unless a meal plan pulls it in.",
+
+  "tool": [{"@type": "HowToTool", "@id": "#skillet", "name": "large skillet with a lid"}],
+
+  "recipeIngredient": [
+    "3 tbsp vegetable or canola oil (, or other neutral oil)",
+    "4 tsp ginger (, finely mince)",
+    "5 large garlic cloves (, minced (about 4 tsp))",
+    "1 large onion (, finely diced)",
+    "500g / 1 lb beef mince (ground beef)",
+    "3/4 tsp cooking salt / kosher salt",
+    "1 tsp cayenne pepper (or chilli powder (pure, not US chili powder spice mix), omit for not spicy)",
+    "1 1/4 tsp garam masala ((Note 1))",
+    "1 1/4 tsp cumin powder",
+    "1 1/4 tsp coriander powder",
+    "1/2 tsp turmeric powder",
+    "1 cup water",
+    "1 green cayenne pepper (, deseeded, finely sliced)",
+    "Cilantro/coriander leaves"
+  ],
+
+  "rw:ingredients": [
+    {
+      "@id": "#oil",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:oil-canola", "name": "vegetable or canola oil"},
+      "rw:volume": {"value": 3, "unitText": "tbsp", "rw:display": "3 tbsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "3 tbsp vegetable or canola oil (, or other neutral oil)",
+      "rw:note": "Sublinear: the oil coats the pan base, which grows more slowly than the batch."
+    },
+    {
+      "@id": "#ginger",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:ginger", "name": "ginger"},
+      "rw:volume": {"value": 4, "unitText": "tsp", "rw:display": "4 tsp"},
+      "rw:preparation": "finely minced",
+      "rw:form": "minced",
+      "rw:scaling": "linear",
+      "rw:originalText": "4 tsp ginger (, finely mince)"
+    },
+    {
+      "@id": "#garlic",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:garlic", "name": "garlic cloves"},
+      "rw:count": {"value": 5, "unitText": "large cloves"},
+      "rw:volume": {"value": 4, "unitText": "tsp", "rw:display": "about 4 tsp minced"},
+      "rw:discrete": true,
+      "rw:preparation": "minced",
+      "rw:form": "minced",
+      "rw:scaling": "linear",
+      "rw:originalText": "5 large garlic cloves (, minced (about 4 tsp))",
+      "rw:note": "The source gives count and volume for the same thing, which is a free cross-check — and they disagree by about 10% however the food bank is calibrated, because a large clove is anywhere from 3 to 7 g. The divergence warning is a true statement about the source, not a defect to be tuned away. Per-unit mass is left to the food bank rather than restated here."
+    },
+    {
+      "@id": "#onion",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:onion", "name": "onion"},
+      "rw:count": {"value": 1, "unitText": "large"},
+      "rw:unitMass": {"value": 150, "unitCode": "GRM"},
+      "rw:preparation": "finely diced",
+      "rw:scaling": "linear",
+      "rw:originalText": "1 large onion (, finely diced)"
+    },
+    {
+      "@id": "#beef",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:beef-mince", "name": "beef mince"},
+      "rw:mass": {"value": 500, "unitCode": "GRM", "rw:display": "500 g / 1 lb"},
+      "rw:scaling": "linear",
+      "rw:substitutes": [{"@id": "food:chicken-mince", "name": "chicken mince"}],
+      "rw:originalText": "500g / 1 lb beef mince (ground beef)"
+    },
+    {
+      "@id": "#salt",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:salt-kosher", "name": "cooking salt"},
+      "rw:volume": {"value": 0.75, "unitText": "tsp", "rw:display": "3/4 tsp"},
+      "rw:form": "fine",
+      "rw:scaling": "linear",
+      "rw:originalText": "3/4 tsp cooking salt / kosher salt"
+    },
+    {
+      "@id": "#cayenne",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:cayenne-ground", "name": "cayenne pepper"},
+      "rw:volume": {"value": 1, "unitText": "tsp", "rw:display": "1 tsp"},
+      "rw:optional": true,
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 tsp cayenne pepper (or chilli powder (pure, not US chili powder spice mix), omit for not spicy)",
+      "rw:note": "Optional in the sense the source means: omit entirely for not spicy. Not a hedge about quantity."
+    },
+    {
+      "@id": "#garam-masala",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:garam-masala", "name": "garam masala"},
+      "rw:volume": {"value": 1.25, "unitText": "tsp", "rw:display": "1 1/4 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 1/4 tsp garam masala ((Note 1))"
+    },
+    {
+      "@id": "#cumin",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:cumin-ground", "name": "cumin powder"},
+      "rw:volume": {"value": 1.25, "unitText": "tsp", "rw:display": "1 1/4 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 1/4 tsp cumin powder"
+    },
+    {
+      "@id": "#coriander-powder",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:coriander-ground", "name": "coriander powder"},
+      "rw:volume": {"value": 1.25, "unitText": "tsp", "rw:display": "1 1/4 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 1/4 tsp coriander powder"
+    },
+    {
+      "@id": "#turmeric",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:turmeric-ground", "name": "turmeric powder"},
+      "rw:volume": {"value": 0.5, "unitText": "tsp", "rw:display": "1/2 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1/2 tsp turmeric powder"
+    },
+    {
+      "@id": "#water",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:water", "name": "water"},
+      "rw:volume": {"value": 1, "unitText": "cup", "rw:display": "1 cup"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1 cup water",
+      "rw:note": "Most of this is meant to leave again — it is a cooking medium, not a yield contribution."
+    },
+    {
+      "@id": "#green-chilli",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:chilli-green", "name": "green cayenne pepper"},
+      "rw:count": {"value": 1, "unitText": "chilli"},
+      "rw:unitMass": {"value": 15, "unitCode": "GRM"},
+      "rw:preparation": "deseeded, finely sliced",
+      "rw:optional": true,
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 green cayenne pepper (, deseeded, finely sliced)"
+    },
+    {
+      "@id": "#coriander-leaves",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:coriander-leaves", "name": "cilantro/coriander leaves"},
+      "rw:optional": true,
+      "rw:toTaste": true,
+      "rw:scaling": "toTaste",
+      "rw:originalText": "Cilantro/coriander leaves",
+      "rw:note": "The source gives no quantity at all. Recorded as unquantified rather than guessed at."
+    }
+  ],
+
+  "rw:components": [
+    {
+      "@id": "#mint-yogurt",
+      "@type": "rw:ComponentUse",
+      "rw:label": "Mint yogurt",
+      "rw:recipe": {"@id": "urn:recipe:rte/mint-yogurt"},
+      "rw:requires": {"rw:batches": 1},
+      "rw:optional": true,
+      "rw:presentation": "linked",
+      "rw:makeAhead": {"rw:maxLead": "P3D", "rw:stateAtUse": "fridge cold"},
+      "rw:note": "Optional as a whole component, not as an ingredient — the source offers plain yogurt as the alternative."
+    }
+  ],
+
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "@id": "#saute-aromatics",
+      "position": 1,
+      "text": "Heat oil in a skillet over high heat. Add ginger and garlic and saute for 30 seconds until golden, don't let it burn. Add onion and cook for 1 minute until it is starting to turn translucent.",
+      "rw:consumes": [
+        {"@id": "#oil"}, {"@id": "#ginger"}, {"@id": "#garlic"}, {"@id": "#onion"}
+      ],
+      "rw:produces": [{"@id": "#aromatics", "name": "Fried aromatics"}],
+      "rw:attention": "active",
+      "totalTime": "PT90S",
+      "rw:doneness": "garlic golden but not burnt, onion starting to turn translucent",
+      "tool": [{"@id": "#skillet"}]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#brown-and-bloom",
+      "position": 2,
+      "text": "Add beef and cook, breaking it up as you go, until it changes from pink to light brown. Add the salt and all the spices. Cook for a further 2 minutes to let the spices bloom.",
+      "rw:consumes": [
+        {"@id": "#aromatics"}, {"@id": "#beef"}, {"@id": "#salt"},
+        {"@id": "#cayenne"}, {"@id": "#garam-masala"}, {"@id": "#cumin"},
+        {"@id": "#coriander-powder"}, {"@id": "#turmeric"}
+      ],
+      "rw:produces": [{"@id": "#bloomed", "name": "Browned, spiced beef"}],
+      "rw:attention": "active",
+      "totalTime": "PT5M",
+      "rw:doneness": "no pink left in the beef, and the spices smell toasted",
+      "rw:maxDelayAfter": [
+        {"rw:from": {"@id": "#saute-aromatics"}, "rw:limit": "PT0S",
+         "rw:reason": "the aromatics are in a hot dry pan and will scorch if left"}
+      ]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#simmer",
+      "position": 3,
+      "text": "Add water, give it a stir, then put a lid on. Turn heat down to medium and let it simmer for 10 minutes or until most of the water has evaporated.",
+      "rw:consumes": [{"@id": "#bloomed"}, {"@id": "#water"}],
+      "rw:produces": [{"@id": "#qeema", "name": "Qeema"}],
+      "rw:attention": "unattended",
+      "totalTime": "PT10M",
+      "rw:doneness": "most of the water has evaporated but the mince is still a bit juicy",
+      "rw:donenessNote": "The source gives the time and the state together, and the state is the one that decides. Ten minutes is an estimate.",
+      "tool": [{"@id": "#skillet"}]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#serve",
+      "position": 4,
+      "text": "Serve garnished with extra chilli and coriander, and lots of mint yogurt.",
+      "rw:consumes": [
+        {"@id": "#qeema"}, {"@id": "#green-chilli"},
+        {"@id": "#coriander-leaves"}, {"@id": "#mint-yogurt"}
+      ],
+      "rw:produces": [{"@id": "#plated", "name": "Qeema, plated"}],
+      "rw:attention": "active"
+    }
+  ],
+
+  "rw:notes": [
+    "Fresh spices matter more than anything else here.",
+    "Chicken mince works in place of beef.",
+    "Omit the cayenne entirely for a not-spicy version."
+  ]
+}

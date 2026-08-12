@@ -1,0 +1,378 @@
+{
+  "$comment": "Food concept bank. Densities are calibrated against the source recipes' own cup/gram pairs where those exist, so that round-tripping a scraped recipe reproduces its stated grams. Where a food is habitually measured by volume but sold by mass, 'density_confidence' says how much to trust the conversion; 'low' should surface a warning rather than a silent number.",
+  "foods": {
+    "food:butter-unsalted": {
+      "name": "unsalted butter",
+      "density_g_per_ml": 0.911,
+      "density_confidence": "high",
+      "aliases": [
+        "unsalted butter",
+        "butter, unsalted",
+        "sweet butter"
+      ]
+    },
+    "food:icing-sugar-soft": {
+      "name": "soft icing sugar",
+      "density_g_per_ml": 0.51,
+      "density_confidence": "medium",
+      "note": "Australian 'soft icing sugar' contains cornflour; 'pure icing sugar' does not and behaves differently in buttercream.",
+      "aliases": [
+        "soft icing sugar",
+        "powdered sugar",
+        "confectioners sugar",
+        "icing sugar"
+      ]
+    },
+    "food:cocoa-powder-dutch": {
+      "name": "Dutch-processed cocoa powder",
+      "density_g_per_ml": 0.42,
+      "density_confidence": "low",
+      "note": "Sifted vs scooped cocoa differs by ~25%. Prefer mass.",
+      "aliases": [
+        "cocoa powder",
+        "unsweetened cocoa"
+      ],
+      "form_sensitive": true
+    },
+    "food:milk-full-fat": {
+      "name": "full-fat milk",
+      "density_g_per_ml": 1.032,
+      "density_confidence": "high",
+      "aliases": [
+        "milk",
+        "whole milk",
+        "full cream milk"
+      ]
+    },
+    "food:peanut-butter-smooth": {
+      "name": "smooth peanut butter",
+      "density_g_per_ml": 1.0,
+      "density_confidence": "medium",
+      "note": "Calibrated to RecipeTin Eats' own 1 AU cup = 250 g.",
+      "aliases": [
+        "peanut butter",
+        "smooth peanut butter",
+        "peanut butter spread"
+      ]
+    },
+    "food:chocolate-dark-chips": {
+      "name": "dark chocolate chips",
+      "density_g_per_ml": 0.64,
+      "density_confidence": "medium",
+      "note": "Calibrated to 1.25 AU cups = 200 g. Chips, buttons and chopped block differ; see rw:form.",
+      "aliases": [
+        "dark chocolate chips",
+        "dark chocolate",
+        "chocolate chips"
+      ],
+      "form_sensitive": true
+    },
+    "food:sugar-brown": {
+      "name": "brown sugar",
+      "density_g_per_ml": 0.65,
+      "density_confidence": "low",
+      "note": "Loosely packed vs tightly packed differs by ~25%, and sources rarely say which.",
+      "aliases": [
+        "brown sugar",
+        "light brown sugar",
+        "soft brown sugar"
+      ],
+      "form_sensitive": true
+    },
+    "food:salt-flakes": {
+      "name": "salt flakes",
+      "density_g_per_ml": 0.35,
+      "density_confidence": "low",
+      "note": "Flake salt is roughly half the mass per spoon of fine salt, and brands vary widely.",
+      "aliases": [
+        "salt flakes",
+        "sea salt flakes",
+        "flaky salt"
+      ],
+      "form_sensitive": true
+    },
+    "food:espresso-concentrate": {
+      "name": "espresso concentrate",
+      "density_g_per_ml": 1.01,
+      "density_confidence": "medium",
+      "aliases": [
+        "espresso concentrate",
+        "coffee extract",
+        "espresso powder dissolved"
+      ]
+    },
+    "food:vanilla-extract": {
+      "name": "vanilla extract",
+      "density_g_per_ml": 0.879,
+      "density_confidence": "high",
+      "aliases": [
+        "vanilla extract",
+        "vanilla essence"
+      ]
+    },
+    "food:flour-plain": {
+      "name": "plain flour",
+      "density_g_per_ml": 0.5,
+      "density_confidence": "medium",
+      "note": "Calibrated to RecipeTin Eats' own 2 AU cups = 250 g. Scooped vs spooned flour varies by 20%.",
+      "aliases": [
+        "plain flour",
+        "all-purpose flour",
+        "AP flour"
+      ],
+      "form_sensitive": true
+    },
+    "food:sugar-caster": {
+      "name": "caster sugar",
+      "density_g_per_ml": 0.8,
+      "density_confidence": "high",
+      "note": "Calibrated to RecipeTin Eats' own 1.5 AU cups = 300 g.",
+      "aliases": [
+        "caster sugar",
+        "superfine sugar"
+      ]
+    },
+    "food:baking-powder": {
+      "name": "baking powder",
+      "density_g_per_ml": 0.9,
+      "density_confidence": "medium",
+      "aliases": [
+        "baking powder"
+      ]
+    },
+    "food:salt-kosher": {
+      "name": "kosher salt",
+      "density_g_per_ml": 0.6,
+      "density_confidence": "low",
+      "note": "Diamond Crystal is roughly half the mass per volume of Morton. Volume measures of salt are not portable between brands.",
+      "aliases": [
+        "kosher salt",
+        "salt"
+      ],
+      "form_sensitive": true
+    },
+    "food:egg-whole-large": {
+      "name": "large egg",
+      "unit_mass_g": 52.5,
+      "discrete": true,
+      "note": "RecipeTin Eats specifies 50-55 g each, shell excluded.",
+      "aliases": [
+        "egg",
+        "large egg",
+        "eggs"
+      ]
+    },
+    "food:egg-white": {
+      "name": "egg white",
+      "unit_mass_g": 33.0,
+      "discrete": true,
+      "aliases": [
+        "egg white",
+        "egg whites"
+      ]
+    },
+    "food:oil-vegetable": {
+      "name": "vegetable oil",
+      "density_g_per_ml": 0.918,
+      "density_confidence": "high",
+      "aliases": [
+        "vegetable oil",
+        "canola oil"
+      ]
+    },
+    "food:carrot": {
+      "name": "carrots",
+      "density_g_per_ml": 0.42,
+      "density_confidence": "low",
+      "unit_mass_g": 100.0,
+      "note": "Density is for cut pieces and is highly dependent on cut size.",
+      "aliases": [
+        "carrot",
+        "carrots"
+      ],
+      "form_sensitive": true
+    },
+    "food:carrot-juice": {
+      "name": "fresh carrot juice",
+      "density_g_per_ml": 0.92,
+      "density_confidence": "low",
+      "note": "Calibrated to Modernist Cuisine's own 635 g = 690 mL, which is below the ~1.04 expected for a juice. Source figures retained rather than corrected.",
+      "aliases": [
+        "carrot juice"
+      ]
+    },
+    "food:water": {
+      "name": "water",
+      "density_g_per_ml": 1.0,
+      "density_confidence": "high",
+      "aliases": [
+        "water"
+      ]
+    },
+    "food:baking-soda": {
+      "name": "baking soda",
+      "density_g_per_ml": 1.35,
+      "density_confidence": "low",
+      "note": "Calibrated to Modernist Cuisine's 2.5 g = 3/8 tsp, which is denser than the commonly cited 0.9 g/mL.",
+      "aliases": [
+        "baking soda",
+        "bicarbonate of soda",
+        "bicarb"
+      ]
+    },
+    "food:oil-canola": {
+      "name": "canola oil",
+      "density_g_per_ml": 0.918,
+      "density_confidence": "high",
+      "aliases": [
+        "canola oil",
+        "vegetable or canola oil",
+        "neutral oil"
+      ]
+    },
+    "food:ginger": {
+      "name": "ginger",
+      "density_g_per_ml": 0.6,
+      "density_confidence": "low",
+      "form_sensitive": true,
+      "note": "Density is for finely minced; grated and sliced differ.",
+      "aliases": [
+        "ginger",
+        "fresh ginger"
+      ]
+    },
+    "food:garlic": {
+      "name": "garlic",
+      "density_g_per_ml": 0.9,
+      "density_confidence": "low",
+      "unit_mass_g": 4.0,
+      "discrete": true,
+      "form_sensitive": true,
+      "note": "RecipeTin gives 5 large cloves as about 4 tsp minced, which implies ~3.6 g a clove. Clove size genuinely varies about twofold, so a count-against-volume cross-check on garlic stays noisy however it is calibrated.",
+      "aliases": [
+        "garlic",
+        "garlic cloves",
+        "garlic clove"
+      ]
+    },
+    "food:onion": {
+      "name": "onion",
+      "density_g_per_ml": 0.55,
+      "density_confidence": "low",
+      "unit_mass_g": 150.0,
+      "form_sensitive": true,
+      "aliases": [
+        "onion",
+        "brown onion",
+        "yellow onion"
+      ]
+    },
+    "food:beef-mince": {
+      "name": "beef mince",
+      "density_g_per_ml": 0.95,
+      "density_confidence": "medium",
+      "aliases": [
+        "beef mince",
+        "ground beef",
+        "minced beef"
+      ]
+    },
+    "food:cayenne-ground": {
+      "name": "cayenne pepper",
+      "density_g_per_ml": 0.45,
+      "density_confidence": "low",
+      "aliases": [
+        "cayenne pepper",
+        "chilli powder",
+        "chili powder"
+      ]
+    },
+    "food:garam-masala": {
+      "name": "garam masala",
+      "density_g_per_ml": 0.42,
+      "density_confidence": "low",
+      "aliases": [
+        "garam masala"
+      ]
+    },
+    "food:cumin-ground": {
+      "name": "cumin powder",
+      "density_g_per_ml": 0.45,
+      "density_confidence": "low",
+      "aliases": [
+        "cumin powder",
+        "ground cumin"
+      ]
+    },
+    "food:coriander-ground": {
+      "name": "coriander powder",
+      "density_g_per_ml": 0.4,
+      "density_confidence": "low",
+      "aliases": [
+        "coriander powder",
+        "ground coriander"
+      ]
+    },
+    "food:turmeric-ground": {
+      "name": "turmeric powder",
+      "density_g_per_ml": 0.55,
+      "density_confidence": "low",
+      "aliases": [
+        "turmeric powder",
+        "ground turmeric"
+      ]
+    },
+    "food:yogurt-plain": {
+      "name": "plain yogurt",
+      "density_g_per_ml": 1.03,
+      "density_confidence": "high",
+      "aliases": [
+        "plain yogurt",
+        "yogurt",
+        "yoghurt"
+      ]
+    },
+    "food:mint-leaves": {
+      "name": "mint leaves",
+      "density_g_per_ml": 0.15,
+      "density_confidence": "low",
+      "form_sensitive": true,
+      "note": "Leaves measured by volume are almost pure air; packing dominates.",
+      "aliases": [
+        "mint leaves",
+        "mint"
+      ]
+    },
+    "food:chilli-green": {
+      "name": "green chilli",
+      "density_g_per_ml": 0.5,
+      "density_confidence": "low",
+      "unit_mass_g": 15.0,
+      "aliases": [
+        "green cayenne pepper",
+        "green chilli",
+        "green chili"
+      ]
+    },
+    "food:coriander-leaves": {
+      "name": "coriander leaves",
+      "density_g_per_ml": 0.15,
+      "density_confidence": "low",
+      "form_sensitive": true,
+      "aliases": [
+        "cilantro",
+        "coriander leaves",
+        "cilantro/coriander leaves"
+      ]
+    },
+    "food:chicken-mince": {
+      "name": "chicken mince",
+      "density_g_per_ml": 0.95,
+      "density_confidence": "medium",
+      "aliases": [
+        "chicken mince",
+        "ground chicken"
+      ]
+    }
+  }
+}

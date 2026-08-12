@@ -1,0 +1,94 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "Recipe",
+  "@id": "urn:recipe:rte/mint-yogurt",
+  "name": "Mint Yogurt",
+  "url": "https://www.recipetineats.com/qeema-indian-curried-beef/",
+  "author": {"@type": "Person", "name": "Nagi Maehashi"},
+  "isBasedOn": "https://www.recipetineats.com/qeema-indian-curried-beef/",
+
+  "rw:measurementSystem": "AU",
+  "rw:canonicalUnitSystem": "metric",
+  "rw:enrichmentLevel": 3,
+
+  "rw:note": "Its own document rather than part of the qeema, because it has its own heading, its own method, and gets served with other things. The source hides its method in the last numbered step of the parent, which is exactly the shape that makes components easy to miss.",
+
+  "rw:yieldBasis": "sumOfInputs",
+  "rw:covers": ["a serving of qeema for four, with some left over"],
+
+  "rw:storage": [
+    {"rw:method": "refrigerated", "rw:keeps": "P3D"}
+  ],
+
+  "tool": [{"@type": "HowToTool", "@id": "#stick-blender", "name": "stick blender"}],
+
+  "recipeIngredient": [
+    "3/4 cup plain yogurt",
+    "1/2 cup (lightly packed) mint leaves",
+    "1/4 tsp cooking salt / kosher salt"
+  ],
+
+  "rw:ingredients": [
+    {
+      "@id": "#yogurt",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:yogurt-plain", "name": "plain yogurt"},
+      "rw:volume": {"value": 0.75, "unitText": "cup", "rw:display": "3/4 cup"},
+      "rw:scaling": "linear",
+      "rw:originalText": "3/4 cup plain yogurt",
+      "rw:note": "Split: a quarter cup is blitzed with the mint, the rest stirred in afterwards. Blitzing the lot would thin the whole batch."
+    },
+    {
+      "@id": "#mint",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:mint-leaves", "name": "mint leaves"},
+      "rw:volume": {"value": 0.5, "unitText": "cup", "rw:display": "1/2 cup, lightly packed"},
+      "rw:form": "lightly-packed-leaves",
+      "rw:scaling": "linear",
+      "rw:originalText": "1/2 cup (lightly packed) mint leaves"
+    },
+    {
+      "@id": "#salt",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:salt-kosher", "name": "cooking salt"},
+      "rw:volume": {"value": 0.25, "unitText": "tsp", "rw:display": "1/4 tsp"},
+      "rw:form": "fine",
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1/4 tsp cooking salt / kosher salt"
+    }
+  ],
+
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "@id": "#blitz",
+      "position": 1,
+      "text": "Put just 1/4 cup of the yogurt with the mint leaves and salt in a jug just big enough to fit the head of a stick blender. Blitz until the mint is very finely chopped.",
+      "rw:consumes": [
+        {"@id": "#yogurt", "rw:portion": {
+          "rw:volume": {"value": 0.25, "unitText": "cup"},
+          "rw:text": "just 1/4 cup"}},
+        {"@id": "#mint"},
+        {"@id": "#salt"}
+      ],
+      "rw:produces": [{"@id": "#mint-base", "name": "Blitzed mint base"}],
+      "rw:doneness": "the mint is very finely chopped",
+      "rw:attention": "active",
+      "totalTime": "PT1M",
+      "tool": [{"@id": "#stick-blender"}]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#stir-in",
+      "position": 2,
+      "text": "Then stir in the remaining yogurt and refrigerate until required.",
+      "rw:consumes": [
+        {"@id": "#mint-base"},
+        {"@id": "#yogurt", "rw:portion": {"rw:remainder": true}}
+      ],
+      "rw:produces": [{"@id": "#mint-yogurt", "name": "Mint yogurt"}],
+      "rw:attention": "active",
+      "rw:mayPauseAfter": true
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "Recipe",
+  "@id": "urn:recipe:local/coffee-buttercream",
+  "name": "Coffee Buttercream",
+
+  "rw:isVariantOf": {"@id": "urn:recipe:rte/vanilla-buttercream"},
+  "rw:family": {"@id": "family:buttercream"},
+  "rw:provenance": "authored — not from RecipeTin Eats; written to exercise the variant mechanism",
+
+  "rw:note": "A true variant, by the rule: the patch swaps one flavouring and nudges one quantity, and touches no steps. Contrast the chocolate buttercream, which changes every quantity and the method, and is therefore a sibling rather than a variant. Everything not named here — method, coverage claims, storage, batch constraints — is inherited from the base, so a fix to the base reaches this file automatically.",
+
+  "rw:adjustments": [
+    {
+      "@type": "rw:Replace",
+      "rw:target": {"@id": "#vanilla"},
+      "rw:with": {
+        "@id": "#vanilla",
+        "name": "espresso concentrate",
+        "rw:food": {"@id": "food:espresso-concentrate", "name": "espresso concentrate"},
+        "rw:mass": {"value": 45, "unitCode": "GRM"},
+        "rw:scaling": "linear"
+      }
+    },
+    {
+      "@type": "rw:SetQuantity",
+      "rw:target": {"@id": "#icing-sugar"},
+      "rw:scaleBy": 0.9,
+      "rw:note": "less sweet, to keep the coffee from being buried"
+    }
+  ]
+}

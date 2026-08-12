@@ -1,0 +1,14 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "rw:RecipeFamily",
+  "@id": "family:buttercream",
+  "name": "Buttercream",
+  "rw:note": "Chocolate and vanilla buttercream share no quantities and no method: butter 250 g vs 200 g, sugar 500 g vs ~319 g, sugar added in three lots vs two, and milk goes from an optional thinner to a required structural ingredient. Neither is a variant of the other. They are siblings in a family, and a family carries no quantities of its own. Coffee buttercream IS a variant, because its patch touches one ingredient and no steps.",
+  "rw:members": [
+    {"@id": "urn:recipe:rte/vanilla-buttercream"},
+    {"@id": "urn:recipe:rte/chocolate-buttercream"},
+    {"@id": "urn:recipe:local/coffee-buttercream"}
+  ],
+  "rw:default": {"@id": "urn:recipe:rte/vanilla-buttercream"},
+  "rw:familyNote": "A browsing tag, not a resolution mechanism. Nothing resolves through a family: substituting chocolate buttercream for vanilla in a cake is something you do by reading both recipes, not something the resolver should attempt."
+}

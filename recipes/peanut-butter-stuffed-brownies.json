@@ -1,0 +1,344 @@
+{
+  "@context": ["https://schema.org", {"rw": "https://ha-recipe-wizard.local/vocab#"}],
+  "@type": "Recipe",
+  "@id": "urn:recipe:rte/peanut-butter-stuffed-brownies",
+  "name": "Peanut Butter Stuffed Brownies",
+  "url": "https://www.recipetineats.com/peanut-butter-stuffed-brownies/",
+  "author": {"@type": "Person", "name": "Nagi Maehashi"},
+  "isBasedOn": "https://www.recipetineats.com/peanut-butter-stuffed-brownies/",
+
+  "rw:measurementSystem": "AU",
+  "rw:canonicalUnitSystem": "metric",
+  "rw:enrichmentLevel": 3,
+
+  "rw:note": "Encoded to exercise the three portion kinds and both delay directions. The peanut butter is split by remainder and by absolute measure; the brownie batter is split by fraction and by remainder; the cut cannot happen until three hours after the bake, and serving cannot happen until fifteen minutes after the cut.",
+
+  "prepTime": "PT30M",
+  "cookTime": "PT32M",
+  "recipeYield": [{"@type": "QuantitativeValue", "value": 16, "unitText": "squares"}],
+  "rw:yieldBasis": "sumOfInputs",
+  "rw:massLossFactor": 0.04,
+  "rw:scalingBasis": {"@id": "#chocolate"},
+
+  "rw:vessel": {"rw:name": "20 cm (8\") square pan", "rw:count": 1},
+
+  "rw:storage": [
+    {
+      "rw:method": "airtight-pantry",
+      "rw:keeps": "P4D",
+      "rw:condition": "unless it is very warm where you are"
+    },
+    {
+      "rw:method": "refrigerated",
+      "rw:keeps": "P7D",
+      "rw:qualityNote": "eaten fridge-cold they are firmer and more fudge-like; 15 minutes at room temperature brings back the creamy peanut butter"
+    }
+  ],
+
+  "tool": [
+    {"@type": "HowToTool", "@id": "#square-pan", "name": "20 cm / 8\" square pan"},
+    {"@type": "HowToTool", "@id": "#freezer", "name": "freezer with space for the pan"}
+  ],
+
+  "recipeIngredient": [
+    "1 cup (250g) smooth peanut butter spread",
+    "1 tsp salt flakes, divided",
+    "200g / 14 tbsp unsalted butter",
+    "1 1/4 cups (200g) dark chocolate chips",
+    "1 cup loosely packed brown sugar",
+    "3 large eggs, lightly beaten",
+    "1 tsp vanilla extract",
+    "1/2 cup plain flour",
+    "1/4 cup cocoa powder",
+    "1/8 tsp cooking salt"
+  ],
+
+  "rw:ingredients": [
+    {
+      "@id": "#peanut-butter",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:peanut-butter-smooth", "name": "smooth peanut butter"},
+      "rw:mass": {"value": 250, "unitCode": "GRM", "rw:display": "1 cup / 250 g"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1 cup (250g) smooth peanut butter spread for stuffing",
+      "rw:note": "Split two ways: 2 tbsp is reserved for the surface swirl and everything else is frozen into the slab. Before rw:portion existed the whole 250 g rendered against the first step and the swirl step showed no ingredient at all."
+    },
+    {
+      "@id": "#salt-flakes",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:salt-flakes", "name": "salt flakes"},
+      "rw:volume": {"value": 1, "unitText": "tsp", "rw:display": "1 tsp, divided"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 tsp salt flakes, divided",
+      "rw:note": "The source says 'divided' and then only ever accounts for half of it. Recorded as stated rather than guessed at, which the portion validator reports."
+    },
+    {
+      "@id": "#butter",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:butter-unsalted", "name": "unsalted butter"},
+      "rw:mass": {"value": 200, "unitCode": "GRM", "rw:display": "200 g / 14 tbsp / 1 3/4 sticks"},
+      "rw:scaling": "linear",
+      "rw:originalText": "200g / 14 tbsp unsalted butter (1 3/4 US sticks)"
+    },
+    {
+      "@id": "#chocolate",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:chocolate-dark-chips", "name": "dark chocolate chips"},
+      "rw:form": "chips",
+      "rw:mass": {"value": 200, "unitCode": "GRM"},
+      "rw:volume": {"value": 1.25, "unitText": "cup", "rw:display": "1 1/4 cups"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1 1/4 cups (200g) dark chocolate chips (7 oz)"
+    },
+    {
+      "@id": "#brown-sugar",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:sugar-brown", "name": "brown sugar"},
+      "rw:volume": {"value": 1, "unitText": "cup", "rw:display": "1 cup, loosely packed"},
+      "rw:form": "loosely-packed",
+      "rw:scaling": "linear",
+      "rw:originalText": "1 cup loosely packed brown sugar"
+    },
+    {
+      "@id": "#eggs",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:egg-whole-large", "name": "large eggs"},
+      "rw:count": {"value": 3, "unitText": "large"},
+      "rw:unitMass": {"value": 52.5, "unitCode": "GRM"},
+      "rw:discrete": true,
+      "rw:preparation": "lightly beaten",
+      "rw:scaling": "linear",
+      "rw:originalText": "3 large eggs, lightly beaten"
+    },
+    {
+      "@id": "#vanilla",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:vanilla-extract", "name": "vanilla extract"},
+      "rw:volume": {"value": 1, "unitText": "tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1 tsp vanilla extract"
+    },
+    {
+      "@id": "#flour",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:flour-plain", "name": "plain flour"},
+      "rw:volume": {"value": 0.5, "unitText": "cup", "rw:display": "1/2 cup"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1/2 cup plain flour"
+    },
+    {
+      "@id": "#cocoa",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:cocoa-powder-dutch", "name": "cocoa powder"},
+      "rw:volume": {"value": 0.25, "unitText": "cup", "rw:display": "1/4 cup"},
+      "rw:scaling": "linear",
+      "rw:originalText": "1/4 cup cocoa powder"
+    },
+    {
+      "@id": "#salt",
+      "@type": "rw:Ingredient",
+      "rw:food": {"@id": "food:salt-kosher", "name": "cooking salt"},
+      "rw:volume": {"value": 0.125, "unitText": "tsp", "rw:display": "1/8 tsp"},
+      "rw:scaling": "sublinear",
+      "rw:originalText": "1/8 tsp cooking salt / kosher salt"
+    }
+  ],
+
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "@id": "#line-pan",
+      "position": 1,
+      "text": "Butter the pan and line it with baking paper.",
+      "rw:produces": [{"@id": "#lined-pan", "name": "Lined pan"}],
+      "rw:attention": "active",
+      "tool": [{"@id": "#square-pan"}]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#spread-pb",
+      "position": 2,
+      "text": "Warm the remaining peanut butter in the microwave for about 30 seconds to loosen it, pour into the lined pan, spread evenly and sprinkle with half the salt flakes.",
+      "rw:consumes": [
+        {"@id": "#lined-pan"},
+        {"@id": "#peanut-butter", "rw:portion": {"rw:remainder": true, "rw:text": "all but the reserved 2 tbsp"}},
+        {"@id": "#salt-flakes", "rw:portion": {"rw:fraction": 0.5, "rw:text": "half"}}
+      ],
+      "rw:produces": [{"@id": "#pb-layer", "name": "Peanut butter layer"}],
+      "rw:attention": "active",
+      "totalTime": "PT5M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#freeze-pb",
+      "position": 3,
+      "text": "Freeze until firm enough to pick up.",
+      "rw:consumes": [{"@id": "#pb-layer"}],
+      "rw:produces": [{"@id": "#pb-slab", "name": "Frozen peanut butter slab"}],
+      "rw:attention": "unattended",
+      "rw:durationRange": {"rw:min": "PT2H", "rw:max": "PT3H"},
+      "rw:doneness": "firm enough to lift out in one piece",
+      "rw:mayPauseAfter": true
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#reline-pan",
+      "position": 4,
+      "text": "Lift the slab out using the paper and return it to the freezer. Re-line the pan with fresh paper.",
+      "rw:consumes": [{"@id": "#pb-slab"}],
+      "rw:produces": [
+        {"@id": "#slab-ready", "name": "Slab, ready to use"},
+        {"@id": "#fresh-lined-pan", "name": "Freshly lined pan"}
+      ],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#preheat",
+      "position": 5,
+      "text": "Preheat the oven to 180C/350F (160C fan forced).",
+      "rw:attention": "unattended",
+      "totalTime": "PT15M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#melt",
+      "position": 6,
+      "text": "Melt the butter and chocolate in a heatproof bowl in the microwave in 30 second bursts, about 1 minute 30 seconds in total.",
+      "rw:consumes": [{"@id": "#butter"}, {"@id": "#chocolate"}],
+      "rw:produces": [{"@id": "#melted-chocolate", "name": "Melted chocolate"}],
+      "rw:attention": "active",
+      "totalTime": "PT2M"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-sugar-eggs",
+      "position": 7,
+      "text": "Add the sugar and mix, then add the eggs and vanilla and mix until smooth.",
+      "rw:consumes": [
+        {"@id": "#melted-chocolate"}, {"@id": "#brown-sugar"},
+        {"@id": "#eggs"}, {"@id": "#vanilla"}
+      ],
+      "rw:produces": [{"@id": "#wet-mix", "name": "Wet mixture"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-dry",
+      "position": 8,
+      "text": "Add the flour, cocoa and salt, and stir until smooth.",
+      "rw:consumes": [{"@id": "#wet-mix"}, {"@id": "#flour"}, {"@id": "#cocoa"}, {"@id": "#salt"}],
+      "rw:produces": [{"@id": "#brownie-batter", "name": "Brownie batter"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#pour-half",
+      "position": 9,
+      "text": "Pour half the batter into the pan.",
+      "rw:consumes": [
+        {"@id": "#fresh-lined-pan"},
+        {"@id": "#brownie-batter", "rw:portion": {"rw:fraction": 0.5, "rw:text": "half"}}
+      ],
+      "rw:produces": [{"@id": "#base-layer", "name": "Base layer"}],
+      "rw:attention": "active",
+      "rw:maxDelayAfter": [
+        {"rw:from": {"@id": "#add-dry"}, "rw:limit": "PT10M",
+         "rw:reason": "a melted-chocolate batter stiffens as it cools and stops pouring level"}
+      ],
+      "rw:maxDelayNote": "Found by reading the schedule rather than the prose: nothing forced the batter to be made after the freeze, so an earliest-start plan mixed it two hours early and left it to set. The source's own step order implies this constraint without stating it."
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#add-slab",
+      "position": 10,
+      "text": "Top with the frozen peanut butter slab.",
+      "rw:consumes": [{"@id": "#base-layer"}, {"@id": "#slab-ready"}],
+      "rw:produces": [{"@id": "#stuffed", "name": "Stuffed pan"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#cover",
+      "position": 11,
+      "text": "Spread the remaining batter over the slab.",
+      "rw:consumes": [
+        {"@id": "#stuffed"},
+        {"@id": "#brownie-batter", "rw:portion": {"rw:remainder": true}}
+      ],
+      "rw:produces": [{"@id": "#covered", "name": "Covered slab"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#dollop",
+      "position": 12,
+      "text": "Dollop and drizzle the reserved peanut butter across the surface, then swirl it with a butter knife, cutting grooves to reveal the brownie batter beneath.",
+      "rw:consumes": [
+        {"@id": "#covered"},
+        {"@id": "#peanut-butter", "rw:portion": {"rw:volume": {"value": 2, "unitText": "tbsp"}}}
+      ],
+      "rw:produces": [{"@id": "#swirled", "name": "Swirled, ready to bake"}],
+      "rw:attention": "active"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#bake",
+      "position": 13,
+      "text": "Bake until the edges are firmish and the centre still jiggles.",
+      "rw:consumes": [{"@id": "#swirled"}],
+      "rw:produces": [{"@id": "#baked", "name": "Baked brownies"}],
+      "rw:attention": "unattended",
+      "totalTime": "PT32M",
+      "rw:doneness": "edges firmish, centre still jiggling",
+      "rw:maxDelayAfter": [
+        {"rw:from": {"@id": "#dollop"}, "rw:limit": "PT0S",
+         "rw:reason": "the peanut butter slab must go into the oven still frozen"}
+      ],
+      "rw:leadBefore": [
+        {"rw:step": {"@id": "#preheat"}, "rw:lead": "PT15M",
+         "rw:reason": "without this edge the preheat has no dependant at all, and a backward-scheduled plan puts it after the bake"}
+      ]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#cool-counter",
+      "position": 14,
+      "text": "Cool on the counter for 1 hour.",
+      "rw:consumes": [{"@id": "#baked"}],
+      "rw:produces": [{"@id": "#cooled", "name": "Cooled brownies"}],
+      "rw:attention": "unattended",
+      "totalTime": "PT1H"
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#cut",
+      "position": 15,
+      "text": "Refrigerate for at least 3 hours, then cut into 16 squares.",
+      "rw:consumes": [{"@id": "#cooled"}],
+      "rw:produces": [{"@id": "#squares", "name": "Cut brownies"}],
+      "rw:attention": "active",
+      "rw:minDelayAfter": [
+        {"rw:from": {"@id": "#cool-counter"}, "rw:limit": "PT3H",
+         "rw:reason": "cut warm and the peanut butter oozes out"}
+      ]
+    },
+    {
+      "@type": "HowToStep",
+      "@id": "#serve",
+      "position": 16,
+      "text": "Bring back to room temperature before serving.",
+      "rw:consumes": [{"@id": "#squares"}],
+      "rw:attention": "unattended",
+      "rw:minDelayAfter": [
+        {"rw:from": {"@id": "#cut"}, "rw:limit": "PT15M",
+         "rw:reason": "returns the fudgy texture and the creamy peanut butter"}
+      ]
+    }
+  ],
+
+  "rw:notes": [
+    "They must be chilled before cutting or the peanut butter oozes out.",
+    "Eaten fridge-cold they are firmer and more fudge-like."
+  ]
+}
