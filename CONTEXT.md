@@ -101,6 +101,17 @@ thing a shopping list merges on — and it merges on food alone, never on
 preparation, so melted and softened butter are one line to buy.
 _Avoid_: ingredient (that is a line of a recipe), item, product.
 
+**Shopping line**:
+One food to buy, and every recipe in the dish that wants some of it, merged
+after scaling. Merged on food alone — never on preparation, so melted and
+softened butter are one line.
+_Avoid_: item, row, entry, ingredient.
+
+**Contribution**:
+One recipe's ingredient row as its share of a shopping line. What makes the
+merged line able to say which recipes wanted it and how each one prepares it.
+_Avoid_: source, part, component (that word means something else here).
+
 ### Cooking
 
 **Cook-along**:
