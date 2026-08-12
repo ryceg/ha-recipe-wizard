@@ -19,6 +19,24 @@ and the tidying is wrong.
 
 ## Consequences
 
+**hassfest warns about `CONFIG_SCHEMA`, and we accept the warning.** Any
+integration implementing `async_setup` is expected to declare `CONFIG_SCHEMA`
+(here it would be `cv.config_entry_only_config_schema(DOMAIN)`), and every way of
+declaring it needs `homeassistant.helpers.config_validation` imported at module
+scope in this file. We implement `async_setup` because Bronze's `action-setup`
+requires actions to be registered there, so the two rules genuinely conflict.
+
+It stays a warning and CI stays green. At runtime the only thing a missing
+`CONFIG_SCHEMA` costs is YAML validation of a domain that accepts no YAML
+configuration. A guarded `try: import ... except ImportError:` would silence it
+while turning a clean invariant into a subtle one — and would swallow a real
+import failure — so we do not. Reproduce it with:
+
+```
+docker run --rm -v "$(pwd -W)://github/workspace" ghcr.io/home-assistant/hassfest
+```
+
+
 Deferred imports cost nothing at runtime (Home Assistant imports the module once)
 but they do mean this one file reads oddly. Confine the pattern to
 `__init__.py` — every other module in the integration (`config_flow.py`,
