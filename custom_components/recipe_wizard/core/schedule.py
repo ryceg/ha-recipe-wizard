@@ -18,9 +18,10 @@ A plan that violates either is rejected, not warned about.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .model import Recipe, Step
+from .resolve import Resolution
 
 
 #: Assumed duration for a step that states none. Shared by ``schedule`` and
@@ -32,6 +33,31 @@ class ScheduleError(ValueError):
     """The step graph is not schedulable — usually a cycle."""
 
 
+def effective_recipe(source: Recipe | Resolution) -> Recipe:
+    """The document a plan or a table is actually true of.
+
+    A ``Recipe`` passes straight through, because a level-0 scrape has no
+    resolution and still has to be planned and rendered. Given a
+    ``Resolution``, this hands back its *effective* recipe — base plus the
+    variant chain plus the parent's local adjustments — carrying the
+    resolution's **scaled** step portions.
+
+    This exists because the coffee buttercream is, on disk, nothing but a patch
+    list: zero ingredients and zero steps. Every caller that reached for
+    ``library.recipe(id)`` and planned or rendered *that* got an empty table
+    and a 0-minute plan. The other half of the same bug was available to any
+    caller holding a recipe *and* a resolution: it read masses off the
+    resolution and portions off the document, so a doubled brownie tray printed
+    500 g of peanut butter beside an unscaled "dollop 2 tbsp". Taking one
+    argument instead of two makes both impossible to write.
+    """
+    if isinstance(source, Recipe):
+        return source
+    if source.steps is source.recipe.steps:
+        return source.recipe
+    return replace(source.recipe, steps=source.steps)
+
+
 @dataclass(slots=True)
 class ScheduledStep:
     step_id: str
@@ -40,6 +66,15 @@ class ScheduledStep:
     start_s: float
     end_s: float
     attention: str
+    doneness: str | None = None
+    """The state that decides when this step is really finished.
+
+    Carried onto the plan rather than left behind on the ``Step``, because the
+    plan is what a timer is built from and the timer is where it matters: the
+    brownies' bake is "32 min" *and* "edges firmish, centre still jiggling",
+    and a timer that shows only the number tells the cook the wrong one of the
+    two is authoritative.
+    """
 
     @property
     def duration_s(self) -> float:
@@ -215,12 +250,17 @@ def _edge_gap(recipe: Recipe, before: str, after: str) -> float:
 
 
 def schedule(
-    recipe: Recipe,
+    source: Recipe | Resolution,
     *,
     default_step_s: float = DEFAULT_STEP_S,
     strategy: str = "just-in-time",
 ) -> Plan:
     """Plan the recipe, in seconds from t=0.
+
+    Takes a ``Recipe`` or a ``Resolution``. A resolution is planned from its
+    *effective* document: the coffee buttercream's own file has no steps at all,
+    so planning the document on disk produced a 0-minute plan for a recipe that
+    takes seven minutes.
 
     Earliest-start is the obvious algorithm and it is wrong on its own. The
     cake's butter and milk have no predecessor, so ASAP starts them at t=0 —
@@ -233,6 +273,7 @@ def schedule(
     topological walk, solved here by alternating a forward earliest-start pass
     with a backward just-in-time pass until nothing moves.
     """
+    recipe = effective_recipe(source)
     deps = dependencies(recipe)
     ordered = topological_order(recipe)
     by_id = {step.id: step for step in recipe.steps}
@@ -314,6 +355,7 @@ def schedule(
             start_s=start[step.id] - base,
             end_s=end[step.id] - base,
             attention=step.attention,
+            doneness=step.doneness,
         )
         for step in ordered
     ]
@@ -354,7 +396,7 @@ def _attention_wall_clock(scheduled: list[ScheduledStep]) -> tuple[float, float]
 
 
 def check_plan(
-    recipe: Recipe,
+    source: Recipe | Resolution,
     starts: dict[str, float],
     *,
     default_step_s: float = DEFAULT_STEP_S,
@@ -363,7 +405,11 @@ def check_plan(
 
     This is the guard against a planner deciding the batter can be made ahead.
     Given start times in seconds, it returns every constraint they break.
+
+    Takes the same ``Recipe | Resolution`` as ``schedule``, so a plan and the
+    check on it cannot be run against two different documents.
     """
+    recipe = effective_recipe(source)
     by_id = {step.id: step for step in recipe.steps}
     violations: list[Violation] = []
 

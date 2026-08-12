@@ -27,8 +27,20 @@ large eggs                     210 g    84.0%   4. Beat eggs for 30 seconds on
 ```bash
 python -m recipe_wizard --list
 python -m recipe_wizard vanilla-cake --components --plan
+python -m recipe_wizard vanilla-cake --batches 2 --cook   # the cook-along, doubled
 python -m recipe_wizard --list --validate
 python -m pytest
+```
+
+`--cook` is the surface everything else serves: each step in the order it is to
+be done, what it needs *at this batch size*, and what its timer should say.
+
+```
+[12/16] Peanut Butter Stuffed Brownies - step 12  (active, from 130 min)
+  Dollop and drizzle the reserved peanut butter across the surface, then swirl it
+  with a butter knife, cutting grooves to reveal the brownie batter beneath.
+    - Covered slab
+    - smooth peanut butter: 4 tbsp (of 500 g)
 ```
 
 No dependencies beyond the standard library; `pytest` only for the tests.
@@ -65,12 +77,12 @@ wrong and missed link.
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 117 tests, most of them named after a failure mode |
+| `tests/` | 145 tests, most of them named after a failure mode |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
-with its components), `schedule.py` (constraint solving), `adjust.py` (patch
-operations), `mass.py` (unit reconciliation), `render.py` (the table and the
-cook-along view), `validate.py`.
+with its components), `schedule.py` (constraint solving), `cookalong.py` (what to
+cook now, and what its timer says), `adjust.py` (patch operations), `mass.py`
+(unit reconciliation), `render.py` (the Modernist table), `validate.py`.
 
 Tests either build the recipe they need with `tests/support.py`, so the premise
 is visible in the test, or run against the real corpus where the corpus *is* the
@@ -109,6 +121,12 @@ preserve the contradictions rather than cleaning them up:
   never silently resolved.
 * **A recipe keeps longer than it stays good.** The cake is safe for a week and
   at its best for four days; treating that as a contradiction was a bug.
+* **A variant is not a document you can read off disk.** The coffee buttercream
+  is a patch list — zero ingredients, zero steps — so every caller that planned
+  or rendered `library.recipe(id)` showed an empty table and a 0-minute plan.
+  The effective document is `Resolution.recipe`, and the two callers that used
+  to take a recipe *and* a resolution (reading the weights off one and the
+  procedure off the other) now take one thing, so the columns cannot disagree.
 
 Things were also **cut** after turning out to serve requirements nobody had:
 coverage geometry (~300 lines that converted "enough for a 20 cm cake" into
@@ -120,12 +138,14 @@ Full reasoning in [`docs/format.md`](docs/format.md).
 
 ## Next
 
-* Home Assistant integration wrapping this library — entities per recipe, step
-  timers, and the cook-along view that `ingredients_for_step()` already backs.
+* Home Assistant integration wrapping this library — entities per recipe and
+  step timers, over the `cookalong.py` cursor: the integration holds "which step
+  am I on" and asks `CookAlong.at(cursor)` what that step is.
 * Enrichment skills lifting scraped recipes from level 0 to level 3, iterating
   against the validator until it is clean.
-* The gaps listed at the end of the format doc — doneness driving timers,
-  conditional steps, shopping-list roll-up.
+* The gaps listed at the end of the format doc — doneness actually *holding* a
+  timer rather than being displayed beside it, one timeline across component
+  recipes, conditional steps, shopping-list roll-up.
 
 Recipe content in `recipes/` is transcribed from the sources linked in each
 file for personal use, with attribution retained in `author` and `isBasedOn`.

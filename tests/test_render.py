@@ -1,6 +1,6 @@
 """The Modernist row-blocking, which is derived rather than authored."""
 
-from conftest import BROWNIES, CAKE, VANILLA_BC
+from conftest import BROWNIES, CAKE, COFFEE_BC, VANILLA_BC
 
 from custom_components.recipe_wizard.core.render import (
     blocks,
@@ -45,15 +45,49 @@ def test_fractions_are_described_in_words(library, brownies):
 
 
 def test_the_table_flags_an_ingredient_used_more_than_once(library, brownies):
-    table = render_table(brownies, resolve(library, BROWNIES), width=100)
+    table = render_table(resolve(library, BROWNIES), width=100)
     assert "(in 2" in table, "the label wraps, so only the head is on one line"
 
 
 def test_small_quantities_do_not_round_to_zero(library, brownies):
     """0.375 g of salt rendering as "0 g" reads as an authoring error."""
-    table = render_table(brownies, resolve(library, BROWNIES), width=100)
+    table = render_table(resolve(library, BROWNIES), width=100)
     assert " 0 g" not in table
     assert "0.4 g" in table, "1/8 tsp of cooking salt"
+
+
+# ---------------------------------------------------------------------------
+# One document, one scale: the table's columns have to agree with each other
+# ---------------------------------------------------------------------------
+
+
+def test_a_variant_renders_the_steps_and_ingredients_it_inherited(library):
+    """The live bug. The coffee buttercream's own file is a patch list.
+
+    Zero ingredients and zero steps on disk, so a renderer reading the document
+    off disk printed a header and nothing else. Both columns now come from the
+    resolution's effective recipe.
+    """
+    table = render_table(resolve(library, COFFEE_BC, strict=False), width=100)
+    assert "espresso concentrate" in table, "the variant's own substitution"
+    assert "unsalted butter" in table, "inherited from the base"
+    assert "Cream butter using paddle" in table, "the base's procedure"
+    assert "450 g" in table, "500 g of icing sugar, scaled by the variant's 0.9"
+
+
+def test_the_procedure_column_comes_from_the_same_scale_as_the_weights(library):
+    """Scaled masses beside single-batch portions was the other half of the bug.
+
+    ``render_table`` used to take a recipe *and* a resolution, and read the
+    weight column off one and everything else off the other. It takes one
+    argument now, so the doubled brownies cannot print 500 g of peanut butter
+    against a step that still says two tablespoons.
+    """
+    doubled = resolve(library, BROWNIES, requires_batches=2)
+    table = render_table(doubled, width=100)
+    assert "500 g" in table, "250 g of peanut butter, doubled"
+    dollop = next(s for s in doubled.steps if s.id == "#dollop")
+    assert dollop.portion_of("#peanut-butter").describe() == "4 tbsp"
 
 
 # ---------------------------------------------------------------------------
@@ -62,9 +96,16 @@ def test_small_quantities_do_not_round_to_zero(library, brownies):
 
 
 def test_a_scraped_recipe_still_renders_its_ingredients(library, level0):
-    table = render_table(level0, resolve(library, level0.id, strict=False), width=90)
+    table = render_table(resolve(library, level0.id, strict=False), width=90)
     assert "500 g beef mince" in table
     assert "olive oil" in table
+
+
+def test_an_unresolved_recipe_still_renders(library):
+    """A level-0 scrape has no resolution at all and must still be readable."""
+    table = render_table(library.recipe(VANILLA_BC), width=90)
+    assert "unsalted butter" in table
+    assert "Cream butter using paddle" in table
 
 
 def test_ingredients_block_by_the_step_that_first_uses_them(library):
@@ -118,7 +159,7 @@ def test_scaling_column_is_derived_from_the_basis(library):
     """Baker's percentages against flour, computed rather than stored."""
     recipe = library.recipe(CAKE)
     assert recipe.scaling_basis == "#flour"
-    table = render_table(recipe, resolve(library, CAKE, strict=False), width=100)
+    table = render_table(resolve(library, CAKE, strict=False), width=100)
     assert "100.0%" in table, "flour is the basis"
     assert "120.0%" in table, "300 g sugar against 250 g flour"
 

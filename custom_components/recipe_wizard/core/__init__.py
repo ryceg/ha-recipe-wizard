@@ -6,6 +6,15 @@ this library, which keeps the resolver testable on its own.
 
 from .adjust import AdjustmentError, apply_adjustments
 from .compare import Comparison, compare
+from .cookalong import (
+    CookAlong,
+    CookStep,
+    CursorStep,
+    StepIngredient,
+    cook_along,
+    cook_along_from_dish,
+    step_ingredients,
+)
 from .dish import Dish, resolve_dish
 from .importer import import_page, import_url
 from .library import Food, FoodBank, Library, LibraryError
@@ -34,7 +43,13 @@ from .resolve import (
     resolve_component,
     vessel_warnings,
 )
-from .schedule import Plan, check_plan, rigid_chains, schedule
+from .schedule import (
+    Plan,
+    check_plan,
+    effective_recipe,
+    rigid_chains,
+    schedule,
+)
 from .units import Quantity, UnitError
 from .validate import Finding, validate_library, validate_recipe
 
@@ -46,6 +61,9 @@ __all__ = [
     "ComponentUse",
     "Comparison",
     "ConsumeRef",
+    "CookAlong",
+    "CookStep",
+    "CursorStep",
     "Dish",
     "Finding",
     "Food",
@@ -61,6 +79,7 @@ __all__ = [
     "Resolution",
     "ResolvedIngredient",
     "Step",
+    "StepIngredient",
     "Storage",
     "UnitError",
     "UnresolvableComponent",
@@ -69,6 +88,9 @@ __all__ = [
     "blocks",
     "check_plan",
     "compare",
+    "cook_along",
+    "cook_along_from_dish",
+    "effective_recipe",
     "import_page",
     "import_url",
     "ingredient_mass",
@@ -80,6 +102,7 @@ __all__ = [
     "resolve_dish",
     "rigid_chains",
     "schedule",
+    "step_ingredients",
     "uses_of",
     "validate_library",
     "validate_recipe",

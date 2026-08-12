@@ -22,6 +22,7 @@ from textwrap import wrap
 
 from .model import Portion, Recipe, Step
 from .resolve import Resolution
+from .schedule import effective_recipe
 
 INFINITY = 10**9
 
@@ -59,9 +60,16 @@ def ingredients_for_step(
 ) -> list[tuple[str, str, Portion]]:
     """What to put in front of the cook at one step: id, label, how much.
 
-    This is the cook-along view, and the reason portions exist. Without them
-    this returns all 250 g of peanut butter at step 2 and nothing at all at
-    step 12's "dollop 2 tbsp across the surface".
+    This is the reason portions exist. Without them it returns all 250 g of
+    peanut butter at step 2 and nothing at all at step 12's "dollop 2 tbsp
+    across the surface".
+
+    Deliberately takes a bare ``Recipe`` and returns portions exactly as the
+    document states them, at base yield. A level-0 scrape has no resolution and
+    still has to render, so this form has to keep working. It is *not* the form
+    to call when a scale is in play: use ``cookalong.step_ingredients``, which
+    takes a ``Resolution`` and nothing else, so the document, the portions and
+    the masses cannot come from three different batches.
     """
     step = recipe.step(step_id)
     if step is None:
@@ -136,13 +144,24 @@ def format_mass(grams: float | None) -> str:
 
 
 def render_table(
-    recipe: Recipe,
-    resolution: Resolution | None = None,
+    source: Recipe | Resolution,
     *,
     width: int | None = None,
 ) -> str:
-    """Render the blocked ingredient/procedure table as plain text."""
+    """Render the blocked ingredient/procedure table as plain text.
+
+    One argument, on purpose. This used to take a recipe *and* a resolution and
+    read the weight column off the resolution while reading the procedure
+    column, the row-blocking and every portion off the recipe. For a variant
+    that meant an empty table — the coffee buttercream's document has no
+    ingredients and no steps of its own — and at scale ≠ 1 it meant a doubled
+    mass printed against a single batch's "dollop 2 tbsp". Both columns now come
+    from ``effective_recipe(source)``, which is the same document at the same
+    scale by construction.
+    """
     width = width or min(shutil.get_terminal_size((100, 24)).columns, 110)
+    resolution = None if isinstance(source, Recipe) else source
+    recipe = effective_recipe(source)
     masses = {}
     if resolution:
         masses = {i.id: i for i in resolution.ingredients}

@@ -6,9 +6,11 @@ import argparse
 import json
 import sys
 
+from .cookalong import cook_along_from_dish
+from .dish import Dish, resolve_dish
 from .library import Library
 from .render import render_table
-from .resolve import UnresolvableComponent, resolve, resolve_component
+from .resolve import UnresolvableComponent
 from .schedule import schedule
 from .validate import ERROR, WARNING, validate_library, validate_recipe
 
@@ -38,8 +40,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list", action="store_true", help="list the library")
     parser.add_argument("--validate", action="store_true", help="report findings")
     parser.add_argument("--plan", action="store_true", help="show the schedule")
+    parser.add_argument("--cook", action="store_true",
+                        help="the step-by-step cook-along, components grouped")
     parser.add_argument("--components", action="store_true",
                         help="resolve sub-recipes and show their numbers")
+    # Doubling is routine, and until this flag existed the table could only ever
+    # be rendered at x1 -- which is why nothing noticed that the scaled step
+    # portions in ``resolution.steps`` were never read by anything.
+    parser.add_argument("--batches", type=float, default=1.0, metavar="N",
+                        help="scale to N batches; components follow")
     parser.add_argument("--import", dest="import_from", metavar="URL|FILE",
                         help="import a page's schema.org data as a level-0 document")
     parser.add_argument("--compare", metavar="FILE",
@@ -67,15 +76,23 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     recipe = _find(library, args.recipe)
-    resolution = resolve(library, recipe.id, strict=False)
+    # The dish, not the document: a variant's own file may hold nothing but a
+    # patch list, and the components have to be resolved with the parent's scale
+    # multiplied in rather than one level deep by hand.
+    dish = resolve_dish(library, recipe.id, batches=args.batches, strict=False)
+    resolution = dish.resolution
+    effective = resolution.recipe
 
-    print(f"\n{recipe.name.upper()}")
-    if recipe.url:
-        print(recipe.url)
+    print(f"\n{effective.name.upper()}")
+    if effective.url:
+        print(effective.url)
     if resolution.batch_yield_g:
         print(f"Yield: {resolution.batch_yield_g:.0f} g "
-              f"({recipe.yield_basis})")
-    for entry in recipe.storage:
+              f"({effective.yield_basis})")
+    if abs(resolution.scale - 1.0) > 1e-9:
+        made = f", makes {resolution.produced_g:.0f} g" if resolution.produced_g else ""
+        print(f"Batch: x{resolution.scale:g}{made}")
+    for entry in effective.storage:
         keeps = entry.keeps.human() if entry.keeps else "unspecified"
         line = f"Storage: {entry.method}, keeps {keeps}"
         if entry.quality_window:
@@ -83,45 +100,80 @@ def main(argv: list[str] | None = None) -> int:
         if entry.condition:
             line += f" - {entry.condition}"
         print(line)
-    for method in recipe.unsuitable_for:
+    for method in effective.unsuitable_for:
         print(f"Storage: not suitable for {method}")
     print()
-    print(render_table(recipe, resolution))
+    print(render_table(resolution))
+    for warning in resolution.warnings:
+        print(f"! {warning}")
 
     if args.components:
-        for use in recipe.components:
-            print()
-            try:
-                sub = resolve_component(library, use, strict=False)
-            except UnresolvableComponent as exc:
-                print(f"  {use.label}: {exc}")
+        for index, node in enumerate(dish.walk()):
+            for use in node.unresolvable:
+                print(f"\n  {use.label}: {UnresolvableComponent(use)}")
+            if index == 0:
                 continue
-            print(f"  {sub.summary()}")
-            for ingredient in sub.ingredients:
+            print()
+            print(f"  {node.resolution.summary()}")
+            for ingredient in node.resolution.ingredients:
                 print(f"    {ingredient}")
-            for entry in sub.change_log:
+            for entry in node.resolution.change_log:
                 print(f"    . {entry}")
-            for warning in sub.warnings:
+            for warning in node.resolution.warnings:
                 print(f"    ! {warning}")
 
     if args.plan:
-        plan = schedule(recipe)
+        plan = schedule(resolution)
         print(f"\nPLAN  total {plan.total_s / 60:.0f} min | "
               f"hands-on {plan.active_s / 60:.0f} min | "
               f"hands-off {plan.unattended_s / 60:.0f} min")
         for step in plan.steps:
-            print(f"  {step.start_s / 60:6.1f} -> {step.end_s / 60:6.1f}  "
-                  f"{step.step_id:22} [{step.attention}]")
+            line = (f"  {step.start_s / 60:6.1f} -> {step.end_s / 60:6.1f}  "
+                    f"{step.step_id:22} [{step.attention}]")
+            # The clock is an estimate; the state is what decides.
+            if step.doneness:
+                line += f"  then check: {step.doneness}"
+            print(line)
         for chain in plan.rigid_chains:
             print("  no pause allowed: " + " -> ".join(chain))
         for warning in plan.warnings:
             print(f"  ! {warning}")
+
+    if args.cook:
+        _cook(dish)
 
     if args.validate:
         print()
         _report(validate_recipe(recipe, library))
 
     return 0
+
+
+def _cook(dish: Dish) -> None:
+    """Print the cook-along the Home Assistant view will show, one step a page.
+
+    Components are grouped rather than interleaved, so the frosting arrives as
+    its own labelled run of steps with its own plan -- see ``cookalong.py`` for
+    why merging the two timelines is a design decision and not a formatting one.
+    """
+    cook = cook_along_from_dish(dish)
+    for entry in cook.sequence():
+        step = entry.step
+        print(f"\n[{entry.cursor + 1}/{entry.of}] {entry.label} - step {step.position}"
+              f"  ({step.attention}, from {step.start_s / 60:.0f} min)")
+        print(f"  {step.text}")
+        for ingredient in step.ingredients:
+            line = f"    - {ingredient.describe()}"
+            if ingredient.required_state:
+                line += f" [{ingredient.required_state.description}]"
+            print(line)
+        timer = step.timer_label()
+        if timer:
+            print(f"    timer: {timer}")
+        if step.safety_note:
+            print(f"    ! {step.safety_note}")
+        if step.may_pause_after:
+            print("    you may stop here")
 
 
 def _import(source: str) -> int:
