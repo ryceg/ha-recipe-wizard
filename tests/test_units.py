@@ -2,7 +2,7 @@
 
 import pytest
 
-from custom_components.recipe_wizard.core.duration import parse_duration
+from custom_components.recipe_wizard.core.duration import format_duration, parse_duration
 from custom_components.recipe_wizard.core.units import Quantity, UnitError, to_grams, to_millilitres
 
 
@@ -67,3 +67,17 @@ def test_storage_durations_are_flagged_nominal():
     assert parse_duration("P3M").nominal is True
     assert parse_duration("PT20M").seconds == 1200
     assert parse_duration("PT0S").seconds == 0
+
+
+def test_a_written_duration_reads_back_the_same():
+    """Anything that writes a document has to round-trip through the parser.
+
+    The two halves drifting apart is silent: a formatter that emits "PT90M"
+    where the parser wants "PT1H30M" produces a document that loads with the
+    wrong time, or does not load at all.
+    """
+    for seconds in (0, 30, 1200, 3600, 5430, 86400, 90061):
+        written = format_duration(seconds)
+        assert parse_duration(written).seconds == seconds, written
+    assert format_duration(0) == "PT0S"
+    assert format_duration(-5) == "PT0S", "a negative duration is not a duration"

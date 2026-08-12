@@ -97,3 +97,32 @@ def parse_duration(text: str | None) -> Duration | None:
             nominal = True
         total += float(value) * _NOMINAL_SECONDS[key]
     return Duration(total, raw, nominal)
+
+
+def format_duration(seconds: float) -> str:
+    """Render seconds back to an ISO 8601 duration string.
+
+    The inverse of ``parse_duration``, and the only way to *write* a duration
+    into a document rather than read one. Anything that builds recipe JSON-LD
+    needs it -- the test builder is the first such thing, and an importer that
+    normalises a source's "45 minutes" would be the second. Deliberately emits
+    only days and below: months and years are nominal, so writing one back
+    would invent a precision the parser is careful not to claim.
+    """
+    if seconds <= 0:
+        return "PT0S"
+    days, rem = divmod(int(round(seconds)), 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, secs = divmod(rem, 60)
+    out = "P"
+    if days:
+        out += f"{days}D"
+    if hours or minutes or secs:
+        out += "T"
+        if hours:
+            out += f"{hours}H"
+        if minutes:
+            out += f"{minutes}M"
+        if secs:
+            out += f"{secs}S"
+    return out

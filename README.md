@@ -65,11 +65,16 @@ wrong and missed link.
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 94 tests, most of them named after a failure mode |
+| `tests/` | 117 tests, most of them named after a failure mode |
 
-Core modules: `resolve.py` (the pipeline), `schedule.py` (constraint solving),
-`adjust.py` (patch operations), `mass.py` (unit reconciliation),
-`render.py` (the table and the cook-along view), `validate.py`.
+Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
+with its components), `schedule.py` (constraint solving), `adjust.py` (patch
+operations), `mass.py` (unit reconciliation), `render.py` (the table and the
+cook-along view), `validate.py`.
+
+Tests either build the recipe they need with `tests/support.py`, so the premise
+is visible in the test, or run against the real corpus where the corpus *is* the
+subject — enrichment scoring, the unit divergences, "nine findings, no errors".
 
 The library is vendored *inside* the integration directory because HACS installs
 `custom_components/recipe_wizard/` and nothing else, so anything the integration
