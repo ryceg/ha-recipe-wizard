@@ -58,6 +58,16 @@ degradation, and fixing it outranked every modelling gap.)
 Two node kinds — things (ingredients, intermediates, sub-recipes) and steps —
 joined by `rw:consumes` and `rw:produces`.
 
+A reference may be written as a bare fragment (`#flour`) or fully qualified
+(`urn:recipe:rte/vanilla-cake#flour`), and **one rule resolves both**, for all
+three id namespaces and every edge. This is not cosmetic. Each module used to
+match ids its own way, so the same document read differently depending on who
+was reading it: a fully-qualified `rw:consumes` resolved as an ingredient and
+failed as a component in the same function, and a `rw:minDelayAfter` whose
+`rw:from` named its step the long way had its edge dropped altogether — the
+brownies' three-hour chill silently became "cut them now", which is the exact
+failure `minDelayAfter` exists to prevent.
+
 ### Portions
 
 **Forced by data**, in four of six recipes, three different ways:
