@@ -1,0 +1,268 @@
+# Where this integration stands against the Home Assistant quality scale.
+#
+# `manifest.json` deliberately does not declare `quality_scale`: Home Assistant
+# reports every custom integration as "custom" regardless (see
+# `loader.Integration.quality_scale`), so a declaration here would be a claim
+# nothing checks. hassfest skips this file for custom integrations for the same
+# reason, but the file is written to hassfest's real schema anyway -- every rule
+# in every tier is listed, every exemption carries its reason, and nothing is
+# blank -- so that it stays reviewable and would validate unchanged if this ever
+# moved into core.
+#
+# The two structural ceilings, stated once so no rule below has to argue them:
+#
+# * There are no devices. The integration reads a directory of documents, so
+#   every device and discovery rule is genuinely not applicable rather than
+#   skipped, and `integration_type` is `service`.
+# * The library is synchronous. `core/` is a stdlib-only resolver doing file I/O,
+#   which is the right shape for something a CLI and an enrichment loop also use.
+#   Every call from the integration goes through `hass.async_add_executor_job`,
+#   and Platinum's `async-dependency` is the accepted price.
+#
+# Many entity rules are `todo` only because there are no entities yet: the sensor
+# and todo platforms land after this skeleton.
+
+rules:
+  # --- Bronze ---------------------------------------------------------------
+  action-setup:
+    status: done
+    comment: >-
+      Actions register in async_setup, not async_setup_entry, so an automation
+      calling one is told the entry is not loaded rather than that the action
+      does not exist. No action is registered yet; the seam is marked in
+      __init__.py and is deliberately not stubbed, because an action that exists
+      and does nothing can be automated against.
+  appropriate-polling:
+    status: done
+    comment: >-
+      15 minutes. Recipes are added and enriched outside Home Assistant, so
+      polling is what stops a new recipe needing a restart; the interval only
+      stats the documents and parses solely when an mtime has moved
+      (loader.library_fingerprint).
+  brands:
+    status: todo
+    comment: >-
+      Needs an icon.png and a pull request to home-assistant/brands. No asset has
+      been invented for it.
+  common-modules:
+    status: done
+    comment: >-
+      The coordinator is in coordinator.py and shared loading is in loader.py.
+      entity.py arrives with the first platform, which is the first thing that
+      needs a base entity.
+  config-flow: done
+  config-flow-test-coverage:
+    status: done
+    comment: >-
+      tests_ha/test_config_flow.py covers the form, the created entry, the
+      relative-path case, each of the five error keys, recovery after an error,
+      and the single-entry abort.
+  dependency-transparency:
+    status: done
+    comment: >-
+      requirements is empty. The resolver is vendored at
+      custom_components/recipe_wizard/core/ and is stdlib-only, so there is no
+      third-party code to be transparent about.
+  docs-actions:
+    status: todo
+    comment: The integration provides no actions yet.
+  docs-conditions:
+    status: exempt
+    comment: The integration provides no conditions.
+  docs-high-level-description:
+    status: done
+    comment: docs/integration.md opens with what it does and for whom.
+  docs-installation-instructions:
+    status: done
+    comment: docs/integration.md covers both HACS and manual installation.
+  docs-removal-instructions:
+    status: done
+    comment: >-
+      docs/integration.md says what deleting the entry does and does not touch --
+      notably that recipe files are the user's own and are never removed.
+  docs-triggers:
+    status: exempt
+    comment: The integration provides no triggers.
+  entity-event-setup:
+    status: todo
+    comment: >-
+      No entities yet. There is no external event stream to subscribe to; the
+      platforms will subclass CoordinatorEntity, which owns the subscribe and
+      unsubscribe.
+  entity-unique-id:
+    status: todo
+    comment: No entities yet.
+  has-entity-name:
+    status: todo
+    comment: No entities yet.
+  runtime-data:
+    status: done
+    comment: >-
+      entry.runtime_data holds a RecipeWizardData dataclass. hass.data[DOMAIN] is
+      not used anywhere.
+  test-before-configure:
+    status: done
+    comment: >-
+      The config flow loads the library in the executor and reports four distinct
+      failures -- missing directory, no recipes, unreadable food bank, a document
+      that will not parse -- each with its own message.
+  test-before-setup:
+    status: done
+    comment: >-
+      async_config_entry_first_refresh raises ConfigEntryNotReady, so a directory
+      that has gone missing retries instead of loading an entry with no library.
+  unique-config-entry:
+    status: done
+    comment: >-
+      single_config_entry is true in the manifest. There is one recipe library, so
+      a second entry could only ever be a duplicate; Home Assistant aborts the
+      second flow itself with single_instance_allowed.
+
+  # --- Silver ---------------------------------------------------------------
+  action-exceptions:
+    status: todo
+    comment: >-
+      No actions yet. The groundwork is in place -- RecipeLibraryError is a
+      HomeAssistantError carrying a translation key, and strings.json already has
+      the exceptions block.
+  config-entry-unloading:
+    status: done
+    comment: >-
+      async_unload_entry forwards the unload. Nothing else needs tearing down --
+      the library is plain objects and polling stops with the last listener.
+  docs-configuration-parameters:
+    status: done
+    comment: >-
+      There is one setting, the recipe folder, and docs/integration.md documents
+      it. There is no options flow.
+  docs-installation-parameters:
+    status: done
+    comment: docs/integration.md walks the single setup field.
+  entity-unavailable:
+    status: todo
+    comment: >-
+      No entities yet. UpdateFailed already carries the reason, so a
+      CoordinatorEntity will go unavailable correctly for free.
+  integration-owner:
+    status: done
+    comment: codeowners is set in the manifest.
+  log-when-unavailable:
+    status: done
+    comment: >-
+      DataUpdateCoordinator logs the failure once and the recovery once; the
+      integration adds no duplicate logging of its own.
+  parallel-updates:
+    status: todo
+    comment: >-
+      PARALLEL_UPDATES belongs in each platform module and there are no platform
+      modules yet. It should be 0 -- every read is served from the coordinator's
+      already-loaded library.
+  reauthentication-flow:
+    status: exempt
+    comment: There are no credentials. Nothing can expire or be revoked.
+  test-coverage:
+    status: todo
+    comment: >-
+      The glue, the loader and the flow are covered by tests_ha; the rule is met
+      when the platforms are covered too.
+
+  # --- Gold -----------------------------------------------------------------
+  devices:
+    status: exempt
+    comment: >-
+      Nothing here is a device. The integration reads local documents, which is
+      why integration_type is service.
+  diagnostics:
+    status: todo
+    comment: >-
+      Worth having, and it must redact nothing sensitive -- recipe files are the
+      user's own content and a diagnostics dump should stay to counts, paths and
+      validator findings.
+  discovery:
+    status: exempt
+    comment: A directory of files on the host cannot be discovered on a network.
+  discovery-update-info:
+    status: exempt
+    comment: Nothing is discovered, so there is no discovery information to update.
+  docs-data-update:
+    status: done
+    comment: >-
+      docs/integration.md explains the 15-minute scan and that only changed files
+      are re-read.
+  docs-examples:
+    status: todo
+    comment: >-
+      Waiting on the entities, since a useful example is a dashboard or an
+      automation over them.
+  docs-known-limitations:
+    status: done
+    comment: >-
+      docs/integration.md lists them, including that recipes must be edited
+      outside Home Assistant.
+  docs-supported-devices:
+    status: exempt
+    comment: No devices.
+  docs-supported-functions:
+    status: todo
+    comment: There are no entities or actions to document yet.
+  docs-troubleshooting:
+    status: done
+    comment: docs/integration.md maps each setup error to what to do about it.
+  docs-use-cases:
+    status: done
+    comment: docs/integration.md opens with the cook-along and the shopping list.
+  dynamic-devices:
+    status: exempt
+    comment: No devices.
+  entity-category:
+    status: todo
+    comment: No entities yet.
+  entity-device-class:
+    status: todo
+    comment: No entities yet.
+  entity-disabled-by-default:
+    status: todo
+    comment: No entities yet.
+  entity-translations:
+    status: todo
+    comment: No entities yet.
+  exception-translations:
+    status: done
+    comment: >-
+      RecipeLibraryError passes translation_domain and translation_key, and
+      strings.json carries the matching exceptions block.
+  icon-translations:
+    status: todo
+    comment: Arrives with the entities, which is what there is to give icons to.
+  reconfiguration-flow:
+    status: todo
+    comment: >-
+      A real gap rather than a formality -- moving the recipe folder should not
+      mean deleting and re-adding the integration.
+  repair-issues:
+    status: todo
+    comment: >-
+      The obvious candidate is a repair for a document the validator reports
+      errors on, which is more useful than a log line nobody reads.
+  stale-devices:
+    status: exempt
+    comment: No devices.
+
+  # --- Platinum -------------------------------------------------------------
+  async-dependency:
+    status: exempt
+    comment: >-
+      The resolver is synchronous stdlib file I/O on purpose -- it is also a CLI
+      and an enrichment tool. Every call from the integration goes through
+      hass.async_add_executor_job, so the event loop is never blocked; this is the
+      accepted ceiling.
+  inject-websession:
+    status: exempt
+    comment: >-
+      The integration makes no HTTP requests at runtime. Importing a recipe from a
+      URL is a command-line operation outside Home Assistant.
+  strict-typing:
+    status: todo
+    comment: >-
+      The integration is annotated throughout but there is no py.typed marker on
+      the vendored library and no mypy run in CI yet.

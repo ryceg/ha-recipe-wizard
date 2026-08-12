@@ -1,0 +1,14 @@
+{
+  "domain": "recipe_wizard",
+  "name": "Recipe Wizard",
+  "codeowners": ["@ryceg"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/ryceg/ha-recipe-wizard/blob/main/docs/integration.md",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/ryceg/ha-recipe-wizard/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

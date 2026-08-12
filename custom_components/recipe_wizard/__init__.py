@@ -9,3 +9,75 @@ Keep ``homeassistant`` imports out of module scope in this file. Importing
 require Home Assistant to be installed. Use ``TYPE_CHECKING`` for annotations
 and import inside the function bodies; ``tests/test_packaging.py`` enforces it.
 """
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .const import CONF_RECIPES_DIR
+
+if TYPE_CHECKING:
+    # Annotations only. ``from __future__ import annotations`` makes every
+    # annotation in this file a string, so nothing below evaluates these.
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.typing import ConfigType
+
+    from .coordinator import RecipeWizardConfigEntry
+
+# The sensor and todo platforms are added by the agents building them.
+# Forwarding an empty list is harmless, so this needs no guard.
+#
+# Plain strings, not ``homeassistant.const.Platform``: importing that here is
+# exactly what ADR 0002 forbids, and ``Platform`` is a ``StrEnum`` whose members
+# equal these strings anyway. If you are adding a platform, append "sensor" or
+# "todo" -- do not "fix" this by importing the enum.
+PLATFORMS: list[str] = []
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register everything that must exist even when the entry is not loaded.
+
+    Bronze ``action-setup``: an action registered in ``async_setup_entry``
+    disappears when the entry fails to load, so an automation calling it reports
+    "unknown action" instead of "that config entry is not loaded" -- the first
+    sends the user looking for a typo, the second tells them the truth.
+
+    SEAM: the cook-along and shopping-list actions register here. They are the
+    next change and are deliberately not stubbed: an action that exists and does
+    nothing is worse than one that is not there yet, because an automation can be
+    written against it. Registration needs no runtime data -- resolve the entry
+    inside the handler and raise ``ServiceValidationError`` when it is not loaded.
+    """
+    return True
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: RecipeWizardConfigEntry
+) -> bool:
+    """Load the library once, off the event loop, and hand it to the platforms."""
+    from .coordinator import RecipeLibraryCoordinator, RecipeWizardData
+
+    coordinator = RecipeLibraryCoordinator(
+        hass, entry, Path(entry.data[CONF_RECIPES_DIR])
+    )
+    # Raises ``ConfigEntryNotReady`` when the directory has gone missing or a
+    # document will not parse, so Home Assistant retries rather than leaving a
+    # loaded entry with no library behind it (Bronze ``test-before-setup``).
+    await coordinator.async_config_entry_first_refresh()
+
+    entry.runtime_data = RecipeWizardData(coordinator=coordinator)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_unload_entry(
+    hass: HomeAssistant, entry: RecipeWizardConfigEntry
+) -> bool:
+    """Unload the platforms; the coordinator goes with the runtime data.
+
+    There is nothing else to tear down. The library is plain objects and the
+    polling stops when the coordinator loses its last listener, which
+    ``async_unload_platforms`` arranges by removing the entities.
+    """
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

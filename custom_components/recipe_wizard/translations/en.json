@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose your recipe folder",
+        "description": "Recipe Wizard reads recipes from a folder of files on your Home Assistant machine. Tell it which folder, and it will check that it can read the recipes before saving.",
+        "data": {
+          "recipes_dir": "Recipe folder"
+        },
+        "data_description": {
+          "recipes_dir": "The folder holding your recipe files. Each recipe is one file ending in .json, and folders inside this one are searched too. If you type a name rather than a full path, it is taken as a folder next to your configuration.yaml."
+        }
+      }
+    },
+    "error": {
+      "directory_not_found": "There is no folder at {detail}. Check the spelling, or create the folder and put your recipe files in it.",
+      "no_recipes": "No recipes were found in {detail}. Recipe Wizard looks for files ending in .json, including in folders inside this one.",
+      "foods_unreadable": "Recipe Wizard could not read its own list of foods. That file is part of the integration rather than something you edit, so reinstalling the integration usually fixes it. The error was: {detail}",
+      "invalid_recipe": "One of the recipe files could not be read: {detail}. Fix or move that file, then try again.",
+      "unknown": "Something unexpected went wrong. The details are in your Home Assistant log."
+    }
+  },
+  "exceptions": {
+    "directory_not_found": {
+      "message": "There is no folder at {detail}."
+    },
+    "no_recipes": {
+      "message": "No recipes were found in {detail}."
+    },
+    "foods_unreadable": {
+      "message": "Recipe Wizard could not read its own list of foods: {detail}"
+    },
+    "invalid_recipe": {
+      "message": "A recipe file could not be read: {detail}"
+    }
+  }
+}

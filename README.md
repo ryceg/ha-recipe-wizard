@@ -103,12 +103,15 @@ wrong and missed link.
 | Path | |
 | --- | --- |
 | `docs/format.md` | The format spec, and why each decision is what it is |
+| `docs/integration.md` | Installing, configuring and removing the integration |
 | `CONTEXT.md` | The domain language — what to call things, and what not to |
 | `docs/adr/` | Decisions a future reader would otherwise undo |
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
+| `custom_components/recipe_wizard/` | The integration itself: the config flow, the coordinator, the glue |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
 | `tests/` | 220 tests, most of them named after a failure mode |
+| `tests_ha/` | The integration suite. Needs Home Assistant, so it runs on its own |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
 with its components), `schedule.py` (constraint solving), `cookalong.py` (what to
@@ -170,12 +173,40 @@ list for every recipe in the bank. The reasoning for each is in the format doc.
 
 Full reasoning in [`docs/format.md`](docs/format.md).
 
+## The integration
+
+The Home Assistant custom integration is set up and does not exist yet in equal
+measure: the config flow, the coordinator and the glue are in place, and no entity
+is. Installing and configuring it is [`docs/integration.md`](docs/integration.md);
+`custom_components/recipe_wizard/quality_scale.yaml` says where it stands against
+the Home Assistant quality scale, exemption by exemption.
+
+Two constraints shape all of it. `__init__.py` imports `homeassistant` inside
+function bodies, because importing the library runs it first and the CLI must not
+need a 300 MB dependency ([ADR 0002](docs/adr/0002-no-home-assistant-imports-at-module-scope.md),
+enforced by `tests/test_packaging.py`). And every call into the library goes
+through `hass.async_add_executor_job`, because `Library.load()` reads files.
+
+The suites cannot share an interpreter — the Home Assistant test harness's autouse
+fixtures attach to every test in the session and all 220 library tests error — so
+there are two:
+
+```bash
+python -m pytest -q                                          # the library, bare Python
+docker run --rm -v "$(pwd):/app" -w /app rw-hass-test \
+    python -m pytest -q -o asyncio_mode=auto tests_ha        # the integration
+```
+
+The second one is a container because the harness cannot run on Windows at all
+(`homeassistant.runner` imports `fcntl`). Both run in CI, with `hassfest` and HACS
+validation beside them.
+
 ## Next
 
-* Home Assistant integration wrapping this library — entities per recipe and
-  step timers, over the `cookalong.py` cursor: the integration holds "which step
-  am I on" and asks `CookAlong.at(cursor)` what that step is; a `TodoListEntity`
-  over `shopping.py`, whose lines are plain data with no `TodoItem` in them.
+* Entities per recipe and step timers, over the `cookalong.py` cursor: the
+  integration holds "which step am I on" and asks `CookAlong.at(cursor)` what that
+  step is; a `TodoListEntity` over `shopping.py`, whose lines are plain data with
+  no `TodoItem` in them. Both hang off `entry.runtime_data.coordinator`.
 * Enrichment skills lifting scraped recipes from level 0 to level 3, iterating
   against the validator until it is clean.
 * The gaps listed at the end of the format doc — doneness actually *holding* a

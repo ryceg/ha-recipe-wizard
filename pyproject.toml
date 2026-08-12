@@ -11,6 +11,28 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
+# The Home Assistant test harness, for the tests_ha suite only.
+#
+# LINUX ONLY, and never in the same environment as `dev`. Two warnings, both
+# learned the hard way:
+#
+# * The harness cannot run on Windows -- `homeassistant.runner` imports `fcntl`.
+#   Run tests_ha in a container there; see docs/integration.md.
+# * Installing this alongside the library suite breaks the library suite. The
+#   harness registers autouse fixtures that attach to every test in the session,
+#   so all 220 tests in tests/ error before they run. That is why the two suites
+#   are separate directories run by separate interpreters.
+#
+# The pins match .github/workflows/ci.yml and the local Docker image, so a green
+# CI and a green desk mean the same thing. Home Assistant 2026.8.1 needs Python
+# 3.14.2 or newer, which is a stricter floor than requires-python above.
+ha = [
+    "homeassistant==2026.8.1",
+    "pytest-homeassistant-custom-component==0.13.355",
+]
+
 [tool.pytest.ini_options]
+# Only the library suite. tests_ha is named explicitly on the command line,
+# because it needs a different interpreter and `-o asyncio_mode=auto`.
 testpaths = ["tests"]
 pythonpath = ["."]

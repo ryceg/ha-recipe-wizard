@@ -1,0 +1,113 @@
+# CI exists because half of these checks cannot run on the development machine.
+#
+# The Home Assistant test harness imports ``fcntl`` through
+# ``homeassistant.runner``, so ``tests_ha`` cannot run on Windows at all; locally
+# it runs in a container, and here it runs natively.
+#
+# The two suites are separate jobs on purpose, not two commands in one job. With
+# the harness installed, its autouse fixtures attach to every test in the session
+# and all 220 library tests error. Running the library suite in a job with no
+# Home Assistant in it is therefore not just tidiness -- it is the check that the
+# library really is dependency-free, which is the whole premise of ADR 0002.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Pinned to what the local Docker image has, so a green CI and a green desk mean
+  # the same thing. ``pyproject.toml``'s ``ha`` extra carries the same pins for
+  # anyone installing them by hand on Linux.
+  HOMEASSISTANT_VERSION: "2026.8.1"
+  HARNESS_VERSION: "0.13.355"
+
+jobs:
+  library:
+    name: Library suite (no Home Assistant, Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor declared in pyproject.toml, and the version Home Assistant
+        # itself runs on. The library has to work on both: it is a CLI and an
+        # enrichment tool as well as the integration's core.
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install pytest only
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pytest>=8.0"
+
+      - name: Prove Home Assistant is not installed
+        # Without this, the job could silently start passing for the wrong reason
+        # if anything ever pulled Home Assistant in as a transitive dependency.
+        run: |
+          if python -c "import importlib.util, sys; sys.exit(1 if importlib.util.find_spec('homeassistant') else 0)"; then
+            echo "No Home Assistant in this environment, as intended."
+          else
+            echo "::error::homeassistant is installed in the library job, which is the one thing this job exists to rule out."
+            exit 1
+          fi
+
+      - name: Library suite
+        # Includes tests/test_packaging.py, which imports the library with
+        # ``homeassistant`` blocked in a subprocess and so enforces ADR 0002
+        # whether or not Home Assistant is around.
+        run: python -m pytest -q
+
+  integration:
+    name: Integration suite (Home Assistant harness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Home Assistant 2026.8.1 requires >= 3.14.2.
+          python-version: "3.14"
+
+      - name: Install Home Assistant and the custom-component harness
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "homeassistant==${HOMEASSISTANT_VERSION}" \
+            "pytest-homeassistant-custom-component==${HARNESS_VERSION}"
+
+      - name: Integration suite
+        # ``-o asyncio_mode=auto`` is required: without it every test errors on the
+        # harness's autouse async fixtures.
+        run: python -m pytest -q -o asyncio_mode=auto tests_ha
+
+  hassfest:
+    name: hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Validates the manifest -- key order, the URLs, the iot_class, the version
+      # a custom integration must declare -- and the translation files. None of
+      # that can be checked locally, and all of it is easy to get quietly wrong.
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Checks hacs.json and the repository metadata HACS needs. Expect this to
+      # fail until the GitHub repository itself exists with a description and
+      # topics set -- it inspects the repository, not only the files.
+      - uses: hacs/action@main
+        with:
+          category: integration
