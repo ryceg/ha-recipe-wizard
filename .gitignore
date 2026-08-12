@@ -6,3 +6,7 @@ build/
 dist/
 .venv/
 venv/
+
+# Agent worktrees live inside the repo, which is convenient and must never be
+# committed. Registered in .git/worktrees, so `git worktree list` still finds them.
+.claude/worktrees/
