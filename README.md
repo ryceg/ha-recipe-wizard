@@ -27,7 +27,8 @@ large eggs                     210 g    84.0%   4. Beat eggs for 30 seconds on
 ```bash
 python -m recipe_wizard --list
 python -m recipe_wizard vanilla-cake --components --plan
-python -m recipe_wizard vanilla-cake --batches 2 --cook   # the cook-along, doubled
+python -m recipe_wizard vanilla-cake --batches 2 --cook       # the cook-along, doubled
+python -m recipe_wizard vanilla-cake --batches 2 --shopping   # one line per food
 python -m recipe_wizard --list --validate
 python -m pytest
 ```
@@ -42,6 +43,24 @@ be done, what it needs *at this batch size*, and what its timer should say.
     - Covered slab
     - smooth peanut butter: 4 tbsp (of 500 g)
 ```
+
+`--shopping` is the second surface: one line per **food**, merged *after*
+scaling and *not* on preparation, so melted butter and softened butter are one
+line to buy and two things to have ready.
+
+```
+SHOPPING LIST  My Very Best Vanilla Cake  (x2)
+  - plain flour: 500 g
+  - unsalted butter: 680 g
+      230 g, cut into cubes - My Very Best Vanilla Cake
+      450 g - Vanilla buttercream
+  - soft icing sugar: 1000 g
+      sifted
+```
+
+A contributor with no mass — a level-0 ingredient string, or a volume whose food
+the bank has no density for — never disappears into a total. The line reads
+*"at least 500 g, plus 1 line with no weight"*, and `total_g` is `None`.
 
 No dependencies beyond the standard library; `pytest` only for the tests.
 
@@ -89,14 +108,15 @@ wrong and missed link.
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 194 tests, most of them named after a failure mode |
+| `tests/` | 220 tests, most of them named after a failure mode |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
 with its components), `schedule.py` (constraint solving), `cookalong.py` (what to
-cook now, and what its timer says), `graph.py` (the indexed dataflow graph
-every one of those asks), `adjust.py` (patch operations), `mass.py`
-(unit reconciliation, and the one definition of the batch total), `render.py`
-(the Modernist table), `validate.py`.
+cook now, and what its timer says), `shopping.py` (the roll-up: one line per
+food), `graph.py` (the indexed dataflow graph every one of those asks),
+`adjust.py` (patch operations), `mass.py` (unit reconciliation, and the one
+definition of the batch total), `render.py` (the Modernist table),
+`validate.py`.
 
 Tests either build the recipe they need with `tests/support.py`, so the premise
 is visible in the test, or run against the real corpus where the corpus *is* the
@@ -154,12 +174,13 @@ Full reasoning in [`docs/format.md`](docs/format.md).
 
 * Home Assistant integration wrapping this library — entities per recipe and
   step timers, over the `cookalong.py` cursor: the integration holds "which step
-  am I on" and asks `CookAlong.at(cursor)` what that step is.
+  am I on" and asks `CookAlong.at(cursor)` what that step is; a `TodoListEntity`
+  over `shopping.py`, whose lines are plain data with no `TodoItem` in them.
 * Enrichment skills lifting scraped recipes from level 0 to level 3, iterating
   against the validator until it is clean.
 * The gaps listed at the end of the format doc — doneness actually *holding* a
   timer rather than being displayed beside it, one timeline across component
-  recipes, conditional steps, shopping-list roll-up.
+  recipes, conditional steps, a shopping list that knows your pantry.
 
 Recipe content in `recipes/` is transcribed from the sources linked in each
 file for personal use, with attribution retained in `author` and `isBasedOn`.

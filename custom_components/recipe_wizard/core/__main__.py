@@ -12,6 +12,7 @@ from .library import Library
 from .render import render_table
 from .resolve import UnresolvableComponent
 from .schedule import schedule
+from .shopping import shopping_list_from_dish
 from .validate import ERROR, WARNING, validate_library, validate_recipe, worst_level
 
 
@@ -44,6 +45,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="the step-by-step cook-along, components grouped")
     parser.add_argument("--components", action="store_true",
                         help="resolve sub-recipes and show their numbers")
+    parser.add_argument("--shopping", action="store_true",
+                        help="the shopping list: one line per food, whole dish")
+    # Optional components are in by default because the list is a checklist and
+    # leaving a thing off is the failure that costs a trip to the shop.
+    parser.add_argument("--without-optional", action="store_true",
+                        help="with --shopping, leave out optional components")
     # Doubling is routine, and until this flag existed the table could only ever
     # be rendered at x1 -- which is why nothing noticed that the scaled step
     # portions in ``resolution.steps`` were never read by anything.
@@ -141,6 +148,14 @@ def main(argv: list[str] | None = None) -> int:
         # one report looked like two unrelated tools.
         for finding in plan.findings:
             print(f"  {finding}")
+
+    if args.shopping:
+        # The same tree the table and the plan were built from: the list is a
+        # fold over the dish, not a second resolution of it.
+        print()
+        print(shopping_list_from_dish(
+            dish, include_optional=not args.without_optional
+        ).report())
 
     if args.cook:
         _cook(dish)

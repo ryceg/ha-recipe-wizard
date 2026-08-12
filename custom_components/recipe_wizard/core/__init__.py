@@ -46,6 +46,14 @@ from .resolve import (
     vessel_warnings,
 )
 from .schedule import Plan, check_plan, rigid_chains, schedule
+from .shopping import (
+    CitedComponent,
+    Contribution,
+    ShoppingLine,
+    ShoppingList,
+    shopping_list,
+    shopping_list_from_dish,
+)
 from .units import Quantity, UnitError
 from .validate import Finding, validate_library, validate_recipe, worst_level
 
@@ -54,9 +62,11 @@ __all__ = [
     "AdjustmentError",
     "BatchConstraintError",
     "BatchPolicy",
+    "CitedComponent",
     "ComponentUse",
     "Comparison",
     "ConsumeRef",
+    "Contribution",
     "CookAlong",
     "CookStep",
     "CursorStep",
@@ -79,6 +89,8 @@ __all__ = [
     "RecipeGraph",
     "Resolution",
     "ResolvedIngredient",
+    "ShoppingLine",
+    "ShoppingList",
     "Step",
     "StepIngredient",
     "Storage",
@@ -106,6 +118,8 @@ __all__ = [
     "resolve_dish",
     "rigid_chains",
     "schedule",
+    "shopping_list",
+    "shopping_list_from_dish",
     "step_ingredients",
     "uses_of",
     "validate_library",

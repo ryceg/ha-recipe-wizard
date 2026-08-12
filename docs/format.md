@@ -172,6 +172,74 @@ ordered steps with its own plan, labelled, and the cursor walks the tree in
 document order. Merging them into one timeline would mean inventing edges no
 recipe states — see § Known gaps.
 
+## The shopping list
+
+The second surface. `shopping.py` folds a `Dish` into one line per **food**:
+**merge after scaling, recursively, on `rw:food` and *not* on preparation.**
+Cited components are excluded.
+
+Doubling `recipes/vanilla-cake.json` forces every clause. Butter appears twice at
+two different scales — 230 g *cut into cubes* in the cake, and 450 g in the
+buttercream, whose use overrides the standalone 250 g down to 225 g. Merging
+*before* scaling shops for one batch of a doubled cake; merging on the words
+rather than the food asks for butter twice. So **melted butter and softened
+butter are one line to buy and two things to have ready**: a `ShoppingLine` keeps
+its `Contribution`s rather than a running total, `describe()` is the buy line and
+`breakdown()` is the mise-en-place.
+
+Almost none of it is arithmetic. `resolve_dish()` already returns every
+`Resolution` in the tree *at its own effective scale*, so merge-after-scaling
+falls out of `dish.walk()` and nothing in the fold multiplies a mass. A cited
+component is in `Dish.unresolvable` and never in `Dish.components`, so "excluded"
+is structural rather than a filter to remember.
+
+**A row with no mass never merges into a numeric total.** `mass_g` is `None` for
+a level-0 line lifted from a `recipeIngredient` string and for a volume whose
+food the bank has no density for. "500 g flour" plus "some flour" is not 500 g of
+anything, so Principle 3 applies: `total_g` is `None` the moment any contributor
+could not be weighed, the partial sum is only reachable through `measured_g`
+beside `unweighed`, and the line reads *"at least 500 g, plus 1 line with no
+weight"*. Nothing on the class hands back a bare number for a line that has
+none — and `measured_g` is `None`, not `0.0`, when nothing at all was weighed,
+because "0 g flour" is the same false statement in a cheaper disguise.
+
+**`toTaste` is an answer, not a failure to answer.** The qeema's coriander leaves
+reduce to no grams with confidence `n/a`, and that is a different event from its
+ginger's shaky density: the source declined to specify because for shopping it
+does not matter. A to-taste contribution therefore does not count as `unweighed`
+and does not suppress the total — *"1.5 g, plus more to taste"*. Filing it with
+the missing densities would make a genuinely complete total refuse itself.
+
+**An unlinked row merges with nothing, including another spelling of itself.**
+Two recipes both saying "1 onion, finely chopped" with no `rw:food` stay two
+lines. That is the visible cost of imperfect enrichment against the ~95% target,
+and both alternatives are worse: matching on the name merges "1 onion" with "1
+red onion", and matching on `(recipe, ingredient)` merges two uses of *the same*
+sub-recipe while still refusing two recipes that agree — a rule nobody could
+predict. An unlinked row is keyed on its position in the walk, so it is always
+exactly one line.
+
+**Optional is a flag, never a filter.** `include_optional=False` drops optional
+*components*, which `Dish.walk()` already knows how to do — the qeema without the
+mint yogurt, and without its share of the salt. An optional *ingredient* is
+different: the buttercream's milk is optional and its food is the same milk the
+cake needs 495 g of, so dropping the row would silently shrink a total the cook
+does need. `ShoppingLine.optional` is true only when **every** contribution is
+optional — an `all()`, not an `any()` — which is the question a shopping list
+asks: *is there any way through this without buying it?*
+
+Lines come out in first-use order — the root's own ingredient order, then each
+component's new foods. Not sorted: the order a recipe lists its ingredients in is
+information, and alphabetising by whichever recipe's name was seen first is a
+worse order chosen less deliberately. A surface wanting aisles sorts on
+`food_id`. Cited components come out separately as `to_find`, carrying the page
+to find them on, per § ComponentUse's "excluded from shopping lists rather than
+silently contributing nothing".
+
+The return value is plain data with no Home Assistant in it: a `TodoListEntity`
+backs a line with `describe()` and `breakdown()`, and `shopping.py` does not know
+that.
+
 ## Yields and scaling
 
 | Property | Meaning |
@@ -400,11 +468,13 @@ until the ginger it seasons falls under the threshold and goes unreported.
 * **Conditional steps.** *"If the liquid evaporates excessively, add water."*
 * **Package-relative quantities.** *"¾ cup coconut milk (~½ can)"* — the other
   half-can is a real pantry problem.
+* **The shopping list does not know your pantry.** It says what the dish needs,
+  not what you already have, and nothing subtracts the half-used bag of icing
+  sugar or rounds 680 g of butter up to the three blocks a shop sells. Both need
+  state the library deliberately does not hold.
 * **Make-ahead can change the procedure**, not just the timing: the baked
   spaghetti is 25 min covered fresh and 50 min from frozen.
 * **Oven modes.** 160 °C fan and 180 °C conventional are given as equals.
-* **Shopping-list roll-up** is unbuilt. The rule is settled: merge after
-  scaling, recursively, on `rw:food` and *not* on preparation.
 * **`rw:presentation`** is stored and respected by nothing; the renderer always
   links, never inlines.
 * **`sublinear` is √**, a defensible default and nothing more.
