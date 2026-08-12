@@ -85,6 +85,7 @@ wrong and missed link.
 | --- | --- |
 | `docs/format.md` | The format spec, and why each decision is what it is |
 | `CONTEXT.md` | The domain language — what to call things, and what not to |
+| `docs/adr/` | Decisions a future reader would otherwise undo |
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |

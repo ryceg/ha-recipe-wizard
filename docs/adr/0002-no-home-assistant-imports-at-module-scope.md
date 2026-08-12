@@ -1,0 +1,26 @@
+# The integration package imports Home Assistant lazily
+
+`custom_components/recipe_wizard/__init__.py` must not import `homeassistant` at
+module scope, which is a deliberate deviation from every Home Assistant example
+you will find. The reason is the vendored layout: the library is a subpackage at
+`custom_components/recipe_wizard/core/`, so importing anything from it executes
+the integration package's `__init__.py` first. A top-level
+`from homeassistant.core import HomeAssistant` there would make the CLI, the
+enrichment workflow and all ~190 library tests require Home Assistant to be
+installed — a 300 MB dependency to run `--validate` on a recipe. So the glue uses
+`if TYPE_CHECKING:` for annotations (with `from __future__ import annotations`)
+and imports inside the function bodies that need them.
+
+`tests/test_packaging.py::test_core_imports_without_home_assistant_installed`
+enforces this by importing the core in a subprocess with `homeassistant` blocked,
+so it fails whether or not Home Assistant is installed locally. If that test goes
+red after someone tidies the imports into idiomatic HA style, the test is right
+and the tidying is wrong.
+
+## Consequences
+
+Deferred imports cost nothing at runtime (Home Assistant imports the module once)
+but they do mean this one file reads oddly. Confine the pattern to
+`__init__.py` — every other module in the integration (`config_flow.py`,
+`sensor.py`, `todo.py`) is only ever imported *by* Home Assistant and should
+import normally at module scope.
