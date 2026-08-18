@@ -77,6 +77,17 @@ class ScheduledStep:
     two is authoritative.
     """
 
+    stated_s: float | None = None
+    """This step's own stated duration, or ``None`` where it states none.
+
+    Not the same thing as ``duration_s``, and the difference is load-bearing: a
+    step that states no time is laid out at ``DEFAULT_STEP_S`` so the graph has a
+    length, and that minute is scaffolding rather than a claim about the food. Any
+    caller adding times up has to be able to leave it out -- ``state_decided_s``
+    counted it for one release and reported two minutes of assumed time as time a
+    state decides, which is the assumed minute being treated as data.
+    """
+
     @property
     def duration_s(self) -> float:
         return self.end_s - self.start_s
@@ -109,11 +120,11 @@ class Plan:
     def state_decided_s(self) -> float:
         """How much of this plan is a step whose end a *state* decides.
 
-        A sum of those steps' own durations, and deliberately **not** a share of
-        ``total_s``: the timeline is swept rather than summed, because branches
-        overlap -- the brownies mix their chocolate batter while the peanut butter
-        freezes -- so a percentage would be arithmetic between two numbers that do
-        not divide.
+        A sum of those steps' **stated** durations, and deliberately **not** a
+        share of ``total_s``: the timeline is swept rather than summed, because
+        branches overlap -- the brownies mix their chocolate batter while the peanut
+        butter freezes -- so a percentage would divide two numbers that do not
+        divide.
 
         It exists because "total 7 hr" reads as a promise. Nearly three of those
         hours are a bake and two chills that end when the food says so, and a cook
@@ -121,9 +132,18 @@ class Plan:
         soft. The planner still builds the timeline from the clock alone -- there
         is nothing else to build it from -- but it no longer presents the result as
         if the clock were the authority.
+
+        ``stated_s`` and not ``duration_s``, which is the whole reason that field
+        exists. The cake whisks its batter "until smooth and foamy" and gives no
+        time for it, so the planner lays the step out at its assumed minute -- and
+        counting that minute here would report the scaffolding as time a state
+        decides. A state-finished step with no stated time is a step to check, not
+        a quantity of soft time.
         """
         return sum(
-            entry.duration_s for entry in self.steps if entry.doneness is not None
+            entry.stated_s or 0.0
+            for entry in self.steps
+            if entry.doneness is not None
         )
 
     def step(self, step_id: str) -> ScheduledStep | None:
@@ -401,6 +421,8 @@ def schedule(
             end_s=end[step.id] - base,
             attention=step.attention,
             doneness=step.doneness,
+            # The step's own number, not the length it was laid out at.
+            stated_s=step.duration.seconds if step.duration else None,
         )
         for step in ordered
     ]

@@ -251,7 +251,8 @@
       "rw:consumes": [{"@id": "#egg-sugar"}],
       "rw:produces": [{"@id": "#aerated-eggs", "name": "Aerated egg foam"}],
       "rw:attention": "passive",
-      "totalTime": "PT7M"
+      "totalTime": "PT7M",
+      "rw:doneness": "tripled in volume and white/pale"
     },
     {
       "@type": "HowToStep",
@@ -271,7 +272,8 @@
       "text": "Add flour in 3 batches to egg mixture, beating for 5 seconds on speed 1 between each addition. After final addition, beat for 5-10 seconds until no flour is visible, then stop immediately.",
       "rw:consumes": [{"@id": "#aerated-eggs"}, {"@id": "#dry-mix"}],
       "rw:produces": [{"@id": "#base-batter", "name": "Base batter"}],
-      "rw:attention": "active"
+      "rw:attention": "active",
+      "rw:doneness": "no flour is visible"
     },
     {
       "@type": "HowToStep",
@@ -304,6 +306,7 @@
       ],
       "rw:produces": [{"@id": "#tempered-liquid", "name": "Tempered liquid"}],
       "rw:attention": "active",
+      "rw:doneness": "smooth and foamy",
       "rw:maxDelayAfter": [
         {
           "rw:from": {"@id": "#combine-liquids"},
@@ -333,7 +336,8 @@
       "rw:consumes": [{"@id": "#combined-batter"}],
       "rw:produces": [{"@id": "#finished-batter", "name": "Finished batter"}],
       "rw:attention": "active",
-      "totalTime": "PT10S"
+      "totalTime": "PT10S",
+      "rw:doneness": "the batter is smooth and pourable"
     },
     {
       "@type": "HowToStep",
@@ -369,6 +373,8 @@
       "rw:produces": [{"@id": "#baked-layers", "name": "Baked layers"}],
       "rw:attention": "unattended",
       "totalTime": "PT30M",
+      "rw:doneness": "golden brown, and a toothpick in the centre comes out clean",
+      "rw:donenessNote": "The 30 minutes is the 2 x 20cm entry of rw:bakeTimeByVessel below, and the state is what decides. Both halves matter here for the same reason: the time is a property of the tin and the doneness is a property of the cake.",
       "tool": [{"@id": "#oven"}],
       "rw:maxDelayAfter": [
         {"rw:from": {"@id": "#bang-pans"}, "rw:limit": "PT0S",

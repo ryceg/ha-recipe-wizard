@@ -462,13 +462,56 @@ def test_the_plan_says_how_much_of_its_total_a_state_decides(brownies):
     assert plan.state_decided_s == pytest.approx(stated)
 
 
-def test_a_plan_whose_every_step_the_clock_decides_reports_none(library):
-    """The cake declares no doneness anywhere, so there is nothing soft in it.
+def test_a_plan_whose_every_step_the_clock_decides_reports_none():
+    """A recipe with no states in it has nothing soft to report.
 
-    A real corpus assertion rather than a built one: this is the case that makes
-    the CLI leave the line off entirely, and "0 min of that is decided by a
-    state" on a recipe with no states would be noise dressed as information.
+    Built rather than borrowed, and it was borrowed once: this asserted that the
+    *cake* reports none, which was true of the corpus on the day it was written
+    and stopped being true the moment the cake's "until golden brown and a
+    toothpick comes out clean" was lifted into a ``rw:doneness``. The premise is
+    "a recipe whose every step the clock decides", so the recipe saying that is
+    the one the test should build -- ``tests/support.py``'s whole argument.
     """
-    plan = schedule(resolve(library, CAKE))
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces=("#batter", "Batter"),
+                 duration="PT5M"),
+            step("#rest", consumes=["#batter"], produces=("#rested", "Rested"),
+                 duration="PT1H"),
+        ],
+    )
+
+    plan = schedule(resolve(build_library(recipe), recipe.id))
 
     assert plan.state_decided_s == 0
+
+
+def test_a_state_with_no_stated_time_is_a_step_to_check_not_soft_time():
+    """The cake whisks "until smooth and foamy" and gives no time for it.
+
+    The planner lays that out at its assumed minute so the graph has a length,
+    and counting the minute here reported scaffolding as time a state decides --
+    which is the assumed minute being treated as data, the one thing every other
+    part of this module refuses to do. Caught by reading ``--plan`` after
+    enriching the cake, not by a test.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#whisk", consumes=["#flour"], produces=("#smooth", "Smooth"),
+                 doneness="smooth and foamy"),
+            step("#bake", consumes=["#smooth"], produces=("#loaf", "Loaf"),
+                 duration="PT30M", doneness="a skewer comes out clean"),
+        ],
+    )
+
+    plan = schedule(resolve(build_library(recipe), recipe.id))
+
+    assert plan.state_decided_s == pytest.approx(30 * 60), (
+        "the bake's stated half hour, and nothing for the whisk"
+    )
+    assert plan.step("#whisk").duration_s > 0, (
+        "the premise: the whisk does occupy the timeline, it just states no time"
+    )
+    assert plan.step("#whisk").stated_s is None
