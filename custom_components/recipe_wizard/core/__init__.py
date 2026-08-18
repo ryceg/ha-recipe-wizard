@@ -7,6 +7,9 @@ this library, which keeps the resolver testable on its own.
 from .adjust import AdjustmentError, apply_adjustments
 from .compare import Comparison, compare
 from .cookalong import (
+    FINISHES_ON_CLOCK,
+    FINISHES_ON_COOK,
+    FINISHES_ON_STATE,
     CookAlong,
     CookStep,
     CursorStep,
@@ -66,6 +69,9 @@ from .units import Quantity, UnitError
 from .validate import Finding, validate_library, validate_recipe, worst_level
 
 __all__ = [
+    "FINISHES_ON_CLOCK",
+    "FINISHES_ON_COOK",
+    "FINISHES_ON_STATE",
     "Adjustment",
     "AdjustmentError",
     "BatchConstraintError",

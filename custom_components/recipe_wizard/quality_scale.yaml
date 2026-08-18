@@ -173,8 +173,12 @@ rules:
   config-entry-unloading:
     status: done
     comment: >-
-      async_unload_entry forwards the unload. Nothing else needs tearing down --
-      the library is plain objects and polling stops with the last listener.
+      async_unload_entry forwards the unload. The library is plain objects and
+      polling stops with the last listener, so the only thing with a life of its
+      own is the cook-along's wake-up: cursor.py arms one
+      async_track_point_in_time at the current step's estimate, and registers the
+      cancel through entry.async_on_unload rather than the unsubscribe itself,
+      because that unsubscribe is replaced every time the cursor moves.
   docs-configuration-parameters:
     status: done
     comment: >-

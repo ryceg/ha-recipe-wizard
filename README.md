@@ -228,13 +228,11 @@ HACS validation beside them.
 
 ## Next
 
-* A `TodoListEntity` over `shopping.py`, whose lines are plain data with no
-  `TodoItem` in them, hanging off the same `entry.runtime_data.coordinator`.
 * Enrichment skills lifting scraped recipes from level 0 to level 3, iterating
   against the validator until it is clean.
-* The gaps listed at the end of the format doc — doneness actually *holding* a
-  timer rather than being displayed beside it, one timeline across component
-  recipes, conditional steps, a shopping list that knows your pantry.
+* The gaps listed at the end of the format doc — a plan that re-derives itself
+  from where the cook actually is, one timeline across component recipes,
+  conditional steps, a shopping list that knows your pantry.
 
 Recipe content in `recipes/` is transcribed from the sources linked in each
 file for personal use, with attribution retained in `author` and `isBasedOn`.

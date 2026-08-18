@@ -133,6 +133,13 @@ _Avoid_: test, check, condition.
 Whether the cook can walk away: `active`, `passive`, `unattended`.
 _Avoid_: effort, involvement, busy.
 
+**Finishes on**:
+What ends a step: a `state` (a doneness, and any stated time is an estimate of
+it), the `clock` (a time and no state, so the time is the instruction), or the
+`cook` (neither, so it is done when they have done it). One property, because
+every surface used to decide it privately and they disagreed.
+_Avoid_: timer type, step kind, is_timed.
+
 **Rigid chain**:
 A run of steps that may not be interrupted, from a `maxDelayAfter` of zero.
 _Avoid_: critical path, locked sequence.

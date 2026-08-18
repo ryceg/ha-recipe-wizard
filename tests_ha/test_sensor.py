@@ -19,7 +19,10 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_component import async_update_entity
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.recipe_wizard.const import DOMAIN
 from custom_components.recipe_wizard.cursor import (
@@ -416,3 +419,140 @@ async def test_a_library_that_will_not_load_makes_the_sensors_unavailable(
 
     assert hass.states.get(STEP).state == "unavailable"
     assert hass.states.get(TIMER).state == "unavailable"
+
+
+# --- what decides the step, and when the screen starts asking ---------------
+#
+# The brownies carry all three kinds: #bake is 32 min *until* the edges are
+# firmish (a state decides), #cool-counter is a flat hour (the clock decides),
+# and #cut states neither (the cook decides, by having done it).
+
+BAKE = 12
+COOL = 13
+CUT = 14
+
+
+async def arrive(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    recipe_id: str,
+    *,
+    cursor: int,
+    ago: timedelta,
+) -> None:
+    """Put the cook on a step they reached ``ago`` in the past.
+
+    The cursor's ``started_at`` is the only thing that turns a stated duration
+    into a wall-clock estimate, so backdating it is how a test reaches the moment
+    after an estimate has run out without waiting 32 real minutes for it.
+    """
+    async_save_cursor(
+        hass,
+        entry,
+        SavedCursor(
+            recipe_id=recipe_id,
+            cursor=cursor,
+            started_at=dt_util.utcnow() - ago,
+        ),
+    )
+    await hass.async_block_till_done()
+
+
+async def test_each_kind_of_step_says_what_ends_it(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+):
+    """A card should not have to infer this from which attributes are set.
+
+    Every surface used to work it out privately -- the timer label by asking
+    whether a doneness was set, this sensor by asking again and calling all three
+    an estimate -- so they could disagree about the same step.
+    """
+    await start(hass, loaded_entry, BROWNIES, cursor=BAKE)
+    assert hass.states.get(STEP).attributes["finishes_on"] == "state"
+
+    await start(hass, loaded_entry, BROWNIES, cursor=COOL)
+    assert hass.states.get(STEP).attributes["finishes_on"] == "clock"
+
+    await start(hass, loaded_entry, BROWNIES, cursor=CUT)
+    assert hass.states.get(STEP).attributes["finishes_on"] == "cook"
+
+
+async def test_a_flat_hour_on_the_counter_is_not_called_an_estimate(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+):
+    """The failure this fixes: every timestamp was marked ``is_estimate``.
+
+    Cooling for an hour states no doneness, so the hour *is* the instruction --
+    there is nothing it is an estimate of. A surface that hedges its certain
+    numbers has nothing left to mark its uncertain ones with, which is the whole
+    point of the flag.
+    """
+    await start(hass, loaded_entry, BROWNIES, cursor=COOL)
+    attributes = hass.states.get(TIMER).attributes
+
+    assert hass.states.get(TIMER).state != "unknown", (
+        "the premise: this step is timeable, so there is a timestamp to qualify"
+    )
+    assert "is_estimate" not in attributes, (
+        "absent rather than False: a card printing 'estimated: unknown' is the "
+        "failure the original comment was guarding against"
+    )
+    assert attributes["finishes_on"] == "clock"
+
+
+async def test_the_screen_asks_for_a_check_once_the_estimate_runs_out(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+):
+    """The countdown reaching zero is not the brownies being done.
+
+    Until this existed the surface presented them as the same event: a card
+    rendered the timestamp as a countdown, it hit 00:00, and nothing on the
+    screen said the state still had to be looked at.
+    """
+    await arrive(hass, loaded_entry, BROWNIES, cursor=BAKE, ago=timedelta(minutes=40))
+
+    assert hass.states.get(STEP).attributes["awaiting_check"] is True
+    assert hass.states.get(TIMER).attributes["awaiting_check"] is True
+    assert hass.states.get(TIMER).attributes["doneness"] == (
+        "edges firmish, centre still jiggling"
+    ), "and the thing to check is on the screen beside the ask"
+
+
+async def test_a_step_the_clock_decides_never_asks_for_a_check(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+):
+    """An hour on the counter is over when the hour is over.
+
+    If this asked, the flag would mean "the number reached zero" -- which a card
+    can already see for itself from the timestamp.
+    """
+    await arrive(hass, loaded_entry, BROWNIES, cursor=COOL, ago=timedelta(hours=2))
+
+    assert "awaiting_check" not in hass.states.get(STEP).attributes
+    assert "awaiting_check" not in hass.states.get(TIMER).attributes
+
+
+async def test_the_cook_is_asked_without_touching_anything(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, freezer
+):
+    """The wake-up, which is the half of this that is not arithmetic.
+
+    A cook with dough on their hands is not going to open the dashboard to make
+    it recompute. Polling was the alternative and would have needed an interval
+    short enough to matter for a 32-minute bake; leaning on the coordinator's
+    fifteen-minute refresh would tell them to check the brownies up to a quarter
+    of an hour late, which for brownies is the whole ballgame.
+    """
+    await start(hass, loaded_entry, BROWNIES, cursor=BAKE)
+    assert "awaiting_check" not in hass.states.get(STEP).attributes, (
+        "the premise: nothing to check yet, the bake has just started"
+    )
+
+    later = dt_util.utcnow() + timedelta(minutes=33)
+    freezer.move_to(later)
+    async_fire_time_changed(hass, later)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(STEP).attributes["awaiting_check"] is True, (
+        "the state was rewritten by the estimate elapsing, not by the cook"
+    )

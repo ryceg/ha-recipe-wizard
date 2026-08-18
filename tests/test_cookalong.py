@@ -11,12 +11,16 @@ from conftest import BROWNIES, CAKE, COFFEE_BC, VANILLA_BC
 from support import build_library, build_recipe, component, ingredient, portion, step
 
 from custom_components.recipe_wizard.core.cookalong import (
+    FINISHES_ON_CLOCK,
+    FINISHES_ON_COOK,
+    FINISHES_ON_STATE,
     cook_along,
     cook_along_from_dish,
     step_ingredients,
 )
 from custom_components.recipe_wizard.core.dish import resolve_dish
 from custom_components.recipe_wizard.core.resolve import resolve
+from custom_components.recipe_wizard.core.schedule import schedule
 
 #: The one recipe in the corpus with an *optional* whole component.
 QEEMA = "urn:recipe:rte/qeema"
@@ -377,3 +381,94 @@ def test_a_dish_already_resolved_is_not_resolved_again(library):
     cook = cook_along_from_dish(dish)
     assert cook.resolution is dish.resolution
     assert cook.components[0].resolution is dish.components[0].resolution
+
+
+# ---------------------------------------------------------------------------
+# What decides a step is over
+# ---------------------------------------------------------------------------
+
+
+def _one_step(**kwargs):
+    """A one-step recipe, cooked along, so the premise is the step itself."""
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[step("#do-it", consumes=["#flour"],
+                    produces=("#thing", "Thing"), **kwargs)],
+    )
+    dish = cook_along(build_library(recipe), recipe.id)
+    return dish.steps[0]
+
+
+def test_a_state_decides_a_step_even_when_a_time_is_given():
+    """The brownies bake for 32 minutes *until* the edges are firmish.
+
+    The whole format doc turns on the state being authoritative and the time
+    being an estimate of it, and until this property existed every surface
+    decided that privately -- so the timer sensor called all three kinds of
+    number an estimate and the planner called none of them one.
+    """
+    cooked = _one_step(duration="PT32M", doneness="edges firmish, centre jiggling")
+
+    assert cooked.finishes_on == FINISHES_ON_STATE
+    assert cooked.time_is_estimate, "32 min is an estimate of the state"
+
+
+def test_a_stated_time_with_no_state_is_the_instruction_and_not_an_estimate():
+    """"Beat the eggs for 30 seconds on speed 6" is not estimating anything.
+
+    Hedging it is not harmless: a surface that marks its certain numbers
+    uncertain has nothing left to mark its uncertain ones with.
+    """
+    cooked = _one_step(duration="PT30S")
+
+    assert cooked.finishes_on == FINISHES_ON_CLOCK
+    assert not cooked.time_is_estimate
+
+
+def test_a_step_with_neither_is_finished_by_the_cook_doing_it():
+    """Whisking the dry ingredients waits for nothing.
+
+    The planner assumes a minute so the graph has a length, which is scaffolding
+    and not a claim -- so this is not a one-minute clock step.
+    """
+    cooked = _one_step()
+
+    assert cooked.finishes_on == FINISHES_ON_COOK
+    assert not cooked.time_is_estimate
+    assert cooked.timer is None
+
+
+def test_when_the_clock_starts_is_a_different_question_from_what_ends_it():
+    """A timer that starts on an event still ends on the clock.
+
+    ``rw:timerStartsWhen`` is why the timer sensor shows no timestamp -- nothing
+    knows when the water came back to the boil -- and folding it into this
+    property would make a step nobody can time look like a step nothing times.
+    """
+    cooked = _one_step(duration="PT3M", timer_starts_when="the water returns to the boil")
+
+    assert cooked.finishes_on == FINISHES_ON_CLOCK
+    assert cooked.timer_starts_when is not None
+
+
+def test_the_plan_says_how_much_of_its_total_a_state_decides(brownies):
+    """"Total 7 hr" reads as a promise, and most of the brownies is not one."""
+    plan = schedule(brownies)
+
+    assert plan.state_decided_s > 0, "the freeze and the bake both end on a state"
+    assert plan.state_decided_s < plan.total_s
+    stated = sum(entry.duration_s for entry in plan.steps
+                 if entry.doneness is not None)
+    assert plan.state_decided_s == pytest.approx(stated)
+
+
+def test_a_plan_whose_every_step_the_clock_decides_reports_none(library):
+    """The cake declares no doneness anywhere, so there is nothing soft in it.
+
+    A real corpus assertion rather than a built one: this is the case that makes
+    the CLI leave the line off entirely, and "0 min of that is decided by a
+    state" on a recipe with no states would be noise dressed as information.
+    """
+    plan = schedule(resolve(library, CAKE))
+
+    assert plan.state_decided_s == 0

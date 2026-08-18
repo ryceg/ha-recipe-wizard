@@ -105,6 +105,27 @@ class Plan:
     """Lazy id index. ``step()`` was a linear scan over a list every caller reads
     step-by-step -- the CLI, the cook-along and every scheduling test."""
 
+    @property
+    def state_decided_s(self) -> float:
+        """How much of this plan is a step whose end a *state* decides.
+
+        A sum of those steps' own durations, and deliberately **not** a share of
+        ``total_s``: the timeline is swept rather than summed, because branches
+        overlap -- the brownies mix their chocolate batter while the peanut butter
+        freezes -- so a percentage would be arithmetic between two numbers that do
+        not divide.
+
+        It exists because "total 7 hr" reads as a promise. Nearly three of those
+        hours are a bake and two chills that end when the food says so, and a cook
+        planning dinner around the number deserves to know which part of it is
+        soft. The planner still builds the timeline from the clock alone -- there
+        is nothing else to build it from -- but it no longer presents the result as
+        if the clock were the authority.
+        """
+        return sum(
+            entry.duration_s for entry in self.steps if entry.doneness is not None
+        )
+
     def step(self, step_id: str) -> ScheduledStep | None:
         """The scheduled step with this id, under the library's one lookup rule."""
         if self._by_id is None:

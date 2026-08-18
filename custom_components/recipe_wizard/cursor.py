@@ -24,6 +24,17 @@ must never resolve anything; the resolve happens here instead, in the executor,
 once per (recipe, batches, library) -- when the cursor moves or when the library
 reloads -- and the entities read the answer that is already sitting there.
 
+**The moment a step's estimate runs out is a scheduled wake-up, not a poll.**
+A step whose end a *state* decides -- the brownies' "32 min, then check: edges
+firmish" -- needs the screen to stop counting down and start asking, and it needs
+that to happen when the estimate elapses rather than whenever something else
+happens to write a state. The alternatives were both worse than a single timer:
+polling would mean an interval short enough to matter for a 32-minute bake, and
+leaning on the coordinator's fifteen-minute refresh would tell a cook to check
+their brownies up to a quarter of an hour late, which for brownies is the whole
+ballgame. So each refresh arms one ``async_track_point_in_time`` at the estimate
+and cancels the last, and nothing else in the integration watches a clock.
+
 **Optional components are walked, not skipped.** The qeema's mint yogurt is
 optional as a whole component, and a cook-along that dropped its steps would hide
 work the document lists. Leaving it out is the cook's call at the bench, not a
@@ -35,14 +46,15 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 from typing import Any
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
 
-from .core.cookalong import CookAlong, CursorStep, cook_along
+from .core.cookalong import FINISHES_ON_STATE, CookAlong, CursorStep, cook_along
 from .core.library import Library
 from .coordinator import RecipeLibraryCoordinator, RecipeWizardConfigEntry
 
@@ -160,6 +172,8 @@ class CookAlongCursor:
         self._resolved_for: tuple[str, float] | None = None
         self._resolved_from: Library | None = None
         self._listeners: list[CALLBACK_TYPE] = []
+        self._cancel_check: CALLBACK_TYPE | None = None
+        """Cancels the wake-up armed for the current step's estimate."""
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -175,6 +189,10 @@ class CookAlongCursor:
         self.entry.async_on_unload(
             self.coordinator.async_add_listener(self._handle_library_update)
         )
+        # Registered once, and cancels whichever wake-up is armed at the time:
+        # the unsubscribe changes on every refresh, so registering the current
+        # one would leave a later timer running past an unload.
+        self.entry.async_on_unload(self._cancel_check_timer)
         await self.async_refresh()
 
     @callback
@@ -230,6 +248,7 @@ class CookAlongCursor:
         self.step = (
             None if self.cook_along is None else self.cook_along.at(saved.cursor)
         )
+        self._arm_check_timer()
         for update_callback in list(self._listeners):
             update_callback()
 
@@ -266,6 +285,7 @@ class CookAlongCursor:
     @callback
     def _forget(self) -> None:
         """Drop the resolved dish, so nothing stale is served for a new cursor."""
+        self._cancel_check_timer()
         self.cook_along = None
         self.step = None
         self.problem = None
@@ -283,6 +303,81 @@ class CookAlongCursor:
     def total_steps(self) -> int:
         """Every step in the dish, the root's and its components' together."""
         return 0 if self.cook_along is None else self.cook_along.total_steps()
+
+    @property
+    def estimated_end(self) -> datetime | None:
+        """When the current step's stated time runs out, or ``None``.
+
+        Lives here rather than on the sensor that displays it because the wake-up
+        below has to know the same moment, and two copies of "when does this step
+        end" is one too many -- the timer sensor computed this privately and the
+        cursor would have had to re-derive it to schedule anything.
+
+        ``None`` wherever the arithmetic is not supported by the document: no step,
+        no arrival time, no stated duration, or a timer that starts on an event at
+        the bench (``rw:timerStartsWhen``) that nothing here can observe.
+        """
+        entry = self.step
+        if entry is None or self.saved.started_at is None:
+            return None
+        step = entry.step
+        if step.timer_starts_when is not None or step.timer_s is None:
+            return None
+        return self.saved.started_at + timedelta(seconds=step.timer_s)
+
+    @property
+    def awaiting_check(self) -> bool:
+        """The estimate has run out and the cook has not said the state is met.
+
+        Only ever true for a step a *state* finishes. A step that finishes on the
+        clock is done when its time is up -- there is nothing to check -- and
+        saying otherwise would make the flag mean "the number reached zero",
+        which a card can already see for itself.
+
+        A state-finished step that states *no* time never reaches this: there is no
+        estimate to elapse. ``finishes_on`` is what tells a card to prompt for
+        those, from the moment the cook arrives.
+        """
+        end = self.estimated_end
+        if end is None or self.step is None:
+            return False
+        if self.step.step.finishes_on != FINISHES_ON_STATE:
+            return False
+        return dt_util.utcnow() >= end
+
+    @callback
+    def _cancel_check_timer(self) -> None:
+        """Cancel the armed wake-up, if there is one."""
+        if self._cancel_check is not None:
+            self._cancel_check()
+            self._cancel_check = None
+
+    @callback
+    def _arm_check_timer(self) -> None:
+        """Wake the sensors when the current step's estimate elapses.
+
+        Armed only where it would change something: a state-finished step whose
+        estimate is still in the future. A clock-finished step needs no wake-up
+        because nothing about it changes when its time is up -- the countdown a
+        dashboard renders from the timestamp is the whole of it.
+        """
+        self._cancel_check_timer()
+        end = self.estimated_end
+        if end is None or self.step is None:
+            return
+        if self.step.step.finishes_on != FINISHES_ON_STATE:
+            return
+        if end <= dt_util.utcnow():
+            return
+
+        @callback
+        def _elapsed(_now: datetime) -> None:
+            """The estimate has passed. Nothing moved; what it *means* changed."""
+            self._cancel_check = None
+            for update_callback in list(self._listeners):
+                update_callback()
+
+        self._cancel_check = async_track_point_in_time(self.hass, _elapsed, end)
 
     @property
     def finished(self) -> bool:

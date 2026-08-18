@@ -134,6 +134,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nPLAN  total {plan.total_s / 60:.0f} min | "
               f"hands-on {plan.active_s / 60:.0f} min | "
               f"hands-off {plan.unattended_s / 60:.0f} min")
+        # "total 7 hr" reads as a promise, and for the brownies most of it is a
+        # bake and two chills that end when the food says so. Printed only where
+        # there is some, because a "0 min" here would be noise on the recipes
+        # whose every step the clock really does decide.
+        if plan.state_decided_s:
+            print(f"      {plan.state_decided_s / 60:.0f} min of that is decided "
+                  f"by a state, not the clock")
         for step in plan.steps:
             line = (f"  {step.start_s / 60:6.1f} -> {step.end_s / 60:6.1f}  "
                     f"{step.step_id:22} [{step.attention}]")

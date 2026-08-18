@@ -118,6 +118,17 @@ class StepIngredient:
         return line
 
 
+#: A state decides this step is over, and any stated time is an estimate of it.
+#: The brownies bake for "32 min" *until* "edges firmish, centre still jiggling".
+FINISHES_ON_STATE = "state"
+#: The clock decides, because the time *is* the instruction: "beat the eggs for
+#: 30 seconds on speed 6". Nothing here is an estimate of anything.
+FINISHES_ON_CLOCK = "clock"
+#: The cook decides, by having done it. A step that stated no time and no state
+#: is not waiting for anything -- "whisk the flour, baking powder and salt".
+FINISHES_ON_COOK = "cook"
+
+
 @dataclass(slots=True)
 class CookStep:
     """One step, ready to put on a screen: when, what, what with, what timer.
@@ -163,6 +174,41 @@ class CookStep:
     @property
     def has_timer(self) -> bool:
         return self.timer is not None
+
+    @property
+    def finishes_on(self) -> str:
+        """What decides this step is over: a state, the clock, or the cook.
+
+        ``docs/format.md`` has been clear from the start that a stated time is an
+        estimate and the doneness is authoritative, and every surface said so in
+        prose while every surface also decided it privately -- ``timer_label()``
+        by asking whether ``doneness`` is set, ``sensor.py`` by asking the same
+        question a second time and calling *every* timestamp an estimate, the
+        planner by not asking at all. One property, so the three of them cannot
+        drift, and so the distinction is a thing a caller can branch on rather
+        than a sentence a cook has to read carefully.
+
+        Deliberately not folded in with ``timer_starts_when``, which is a
+        different axis: that says when the clock *starts* (an event at the bench
+        this integration cannot see), not what ends the step. A step can finish on
+        the clock and still have no timestamp anyone can compute.
+        """
+        if self.doneness is not None:
+            return FINISHES_ON_STATE
+        if self.timer is not None:
+            return FINISHES_ON_CLOCK
+        return FINISHES_ON_COOK
+
+    @property
+    def time_is_estimate(self) -> bool:
+        """Whether this step's stated time is an estimate of something else.
+
+        True only for a state-finished step that also states a time. A step that
+        finishes on the clock is not estimating: 30 seconds on speed 6 is the
+        instruction, and hedging it on a screen teaches a cook to discount every
+        number the surface shows them -- including the ones that are estimates.
+        """
+        return self.finishes_on == FINISHES_ON_STATE and self.timer is not None
 
     def timer_label(self) -> str | None:
         """What a timer for this step should say, or ``None`` if it has nothing.
