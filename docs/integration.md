@@ -414,6 +414,11 @@ docker run --rm -v "$(pwd):/app" -w /app rw-hass-test \
     python -m pytest -q -o asyncio_mode=auto tests_ha
 ```
 
+From Git Bash on Windows, keep the paths away from MSYS or the run never starts:
+`MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -w /app ...`. Without it
+`-w /app` is rewritten to `C:/Program Files/Git/app`, and Docker rejecting that
+looks like a Docker problem rather than a shell one.
+
 `-o asyncio_mode=auto` is required; without it every test errors on the harness's
 autouse async fixtures. Both suites also run in CI on `ubuntu-latest`, along with
 `hassfest` and HACS validation — see `.github/workflows/ci.yml`.

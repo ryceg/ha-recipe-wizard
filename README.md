@@ -209,6 +209,17 @@ docker run --rm -v "$(pwd):/app" -w /app rw-hass-test \
     python -m pytest -q -o asyncio_mode=auto tests_ha        # the integration
 ```
 
+On Windows -- where the container is the only way to run the second suite at all
+-- Git Bash needs the paths kept out of MSYS's hands:
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -w /app rw-hass-test \
+    python -m pytest -q -o asyncio_mode=auto tests_ha
+```
+
+Without that, MSYS rewrites `-w /app` into `C:/Program Files/Git/app` and Docker
+refuses the run, which reads as a Docker problem and is not one.
+
 The second one is a container because the harness cannot run on Windows at all
 (`homeassistant.runner` imports `fcntl`), and because it needs a few requirements
 the harness does not install — `tests_ha/Dockerfile` says which and why.
