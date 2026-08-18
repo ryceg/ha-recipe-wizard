@@ -143,7 +143,17 @@ _Avoid_: critical path, locked sequence.
 One thing wrong with a document: a severity, a stable code, the recipe, and the
 node it is about. The validator is the contract an enrichment agent iterates
 against, so a finding that fires spuriously is worse than no rule at all.
+Produced by the validator, the planner, the resolver and the mass table alike —
+it is the only report shape in the project, and the producer decides the code
+rather than whoever prints it.
 _Avoid_: error, warning, violation, issue, diagnostic.
+
+**Resolver finding**:
+A finding about a document *at a scale* — the tins will not hold a doubled cake,
+the batch was rounded to whole eggs. Always a warning: nothing is wrong with the
+document, and the resolution carrying it is one a cook can work from. Where its
+subject is the batch rather than a line, it names no node.
+_Avoid_: warning (the field was called that, and the word hid what it was).
 
 **Node**:
 What a finding is about — an ingredient, a component use, or a step — named by

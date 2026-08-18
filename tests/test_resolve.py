@@ -15,6 +15,25 @@ from custom_components.recipe_wizard.core import (
     resolve_component,
 )
 from custom_components.recipe_wizard.core.adjust import AdjustmentError
+from custom_components.recipe_wizard.core.mass import UNIT_DIVERGENCE
+from custom_components.recipe_wizard.core.resolve import (
+    BATCH_CONSTRAINT,
+    BATCH_ROUNDED,
+    VESSEL_CAPACITY,
+    VESSEL_TIMING,
+)
+
+
+def _coded(resolution, code: str) -> list:
+    """Findings under one code.
+
+    Keyed on the code and never on the wording. Every one of these assertions
+    used to read ``if "holds about" in w``, which meant a test would go green
+    for a reworded sentence about something else entirely -- and meant the
+    resolver could not reword its own messages without breaking tests that were
+    not about wording.
+    """
+    return [f for f in resolution.findings if f.code == code]
 
 # ---------------------------------------------------------------------------
 # Level 0: a bare scrape must still be usable
@@ -187,7 +206,14 @@ def test_a_batch_below_the_minimum_is_refused_with_its_reason(library):
 def test_strict_false_downgrades_the_refusal_to_a_warning(library):
     result = resolve(library, VANILLA_BC, requires_mass=Quantity(200, "g"),
                      strict=False)
-    assert any("minimum batch" in w for w in result.warnings)
+    refusal = _coded(result, BATCH_CONSTRAINT)
+    assert len(refusal) == 1
+    assert refusal[0].level == "warning", (
+        "not an error: the resolution that carries it is one a cook can work "
+        "from, which is the whole of what strict=False asked for"
+    )
+    assert refusal[0].node is None, "the batch is the subject, not any one line"
+    assert "minimum batch" in refusal[0].message
 
 
 def test_discrete_eggs_round_up_and_renormalise_the_batch():
@@ -214,8 +240,11 @@ def test_discrete_eggs_round_up_and_renormalise_the_batch():
     assert result.scale == pytest.approx(0.75)
     assert result.leftover_g == pytest.approx(75)
     assert "leftover" in result.summary()
-    assert any("2.25 eggs rounded to 3" in w for w in result.warnings), \
-        "the rounding is reported, not silently applied"
+    rounding = _coded(result, BATCH_ROUNDED)
+    assert len(rounding) == 1, "the rounding is reported, not silently applied"
+    assert "2.25 eggs rounded to 3" in rounding[0].message
+    assert rounding[0].node == "#eggs", ("the basis it counted, so a reader "
+                                         "goes straight to that line")
 
 
 def test_sublinear_ingredients_do_not_scale_linearly(library):
@@ -242,15 +271,25 @@ def test_optional_ingredients_are_excluded_from_yield(library):
 def test_doubling_the_cake_warns_that_the_tins_will_not_hold_it(library):
     """The failure that only surfaced once doubling was known to be routine."""
     result = resolve(library, CAKE, requires_batches=2.0)
-    capacity = [w for w in result.warnings if "holds about" in w]
+    capacity = _coded(result, VESSEL_CAPACITY)
     assert len(capacity) == 1
-    assert "you need roughly 4" in capacity[0]
+    assert "you need roughly 4" in capacity[0].message
+    assert capacity[0].node is None, (
+        "rw:vessel is declared on the document and is not an ingredient, a step "
+        "or a component -- there is no node to hand back to RecipeGraph.node, "
+        "and inventing one would send a fixer at a step that is not wrong"
+    )
 
 
 def test_doubling_refuses_to_scale_the_bake_time(library):
     result = resolve(library, CAKE, requires_batches=2.0)
-    assert any("do not scale the time" in w for w in result.warnings)
-    assert any("3 x 20cm round: 22 min" in w for w in result.warnings)
+    timing = _coded(result, VESSEL_TIMING)
+    assert len(timing) == 1
+    assert "3 x 20cm round: 22 min" in timing[0].message
+    assert timing[0].node is not None, (
+        "unlike the capacity finding beside it, this one is about a step and "
+        "names which -- the step whose rw:vesselOptions say so"
+    )
 
 
 def test_an_unscaled_recipe_gets_no_vessel_noise():
@@ -268,8 +307,8 @@ def test_an_unscaled_recipe_gets_no_vessel_noise():
     )
     library = build_library(recipe)
 
-    assert resolve(library, recipe.id).warnings == []
-    assert resolve(library, recipe.id, requires_batches=2.0).warnings, \
+    assert resolve(library, recipe.id).findings == []
+    assert resolve(library, recipe.id, requires_batches=2.0).findings, \
         "the premise: this recipe does have something to say once it is scaled"
 
 
@@ -365,9 +404,10 @@ def test_a_line_with_no_preparation_says_none_rather_than_inventing_one(library)
 def test_source_columns_that_disagree_are_reported_not_resolved(library):
     """200 g in the metric column, 3/4 cup (171 g) in the cups column."""
     result = resolve(library, CHOCOLATE_BC)
-    divergence = [w for w in result.warnings if "source columns disagree" in w]
+    divergence = _coded(result, UNIT_DIVERGENCE)
     assert len(divergence) == 1
-    assert "200 g" in divergence[0] and "171 g" in divergence[0]
+    assert "200 g" in divergence[0].message and "171 g" in divergence[0].message
+    assert divergence[0].node == "#butter", "the line whose own columns disagree"
     assert _ingredient(result, "#butter").mass_g == pytest.approx(200)
 
 

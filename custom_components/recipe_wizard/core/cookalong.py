@@ -222,7 +222,7 @@ class CookAlong:
     label: str
     scale: float
     resolution: Resolution
-    """Carried so a caller has the yield, the storage, the warnings and the
+    """Carried so a caller has the yield, the storage, the findings and the
     whole ingredient list without resolving anything a second time."""
     plan: Plan
     steps: list[CookStep] = field(default_factory=list)

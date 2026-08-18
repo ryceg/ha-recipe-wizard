@@ -80,7 +80,9 @@ corrupts a parent's override. The module docstring lists all ten steps;
   gets an empty table and a 0-minute plan.
 - `dish.py` → `Dish`: a recipe resolved with its components, recursively. Not
   strict — "a dish is built to be shown", so an impossible batch comes back as a
-  warning on the resolution rather than an exception.
+  `resolve-batch-constraint` finding on the resolution rather than an exception.
+  `all_findings()` pairs each with the *use's* label, which is the only thing that
+  says which use a finding belongs to when one sub-recipe is used twice.
 - `mass.py` — unit reconciliation and the **one** definition of the batch total.
   A line with no derivable mass never disappears into a total: `total_g` is `None`
   and the line reads "at least 500 g, plus 1 line with no weight".
@@ -89,8 +91,15 @@ corrupts a parent's override. The module docstring lists all ten steps;
 - `cookalong.py` — the primary surface. **Stateless over a cursor**: the caller
   holds which step it is on.
 - `shopping.py` — merges on **food alone, never on preparation**, and after scaling.
-- `validate.py` — `Finding` is the only report shape in the project, produced by
-  `validate.py` and `schedule.py` both. Findings are **gated on enrichment level**
+- `validate.py` — `Finding` is the only report shape in the project, and four
+  modules produce it: `validate.py`, `schedule.py` (`schedule-*`), `resolve.py`
+  (`resolve-*`) and `mass.py` (`unit-divergence`, `unresolved-mass`). **The
+  producer decides the level and the code**, never the module printing them — the
+  validator used to classify a mass finding by looking for the word "disagree" in
+  a sentence `mass.py` wrote. `Finding` lives in `validate.py` and the other three
+  import it inside the functions that build one, because `validate` imports them
+  at module scope and an import back would be a cycle. Findings are **gated on
+  enrichment level**
   (0–3), and every one names the **node** a fix goes on, canonical under `graph.py`'s
   id rule so a caller can hand it straight back to `RecipeGraph.node`. The validator
   is the contract an enrichment agent iterates against, so **a rule that fires

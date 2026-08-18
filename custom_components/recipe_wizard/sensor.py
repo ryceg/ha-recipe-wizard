@@ -159,12 +159,20 @@ class CurrentStepSensor(CookAlongSensor):
             "step_number": cursor.saved.cursor + 1,
             "of": cursor.total_steps,
         }
-        if dish is not None and dish.resolution.warnings:
+        if dish is not None and dish.resolution.findings:
             # A batch below a recipe's stated minimum, or a tin the doubled
             # mixture will not fit in. The library reports these rather than
             # refusing, because a dish is built to be shown -- so this is the one
             # place a cook can find out before they start creaming butter.
-            attributes["warnings"] = list(dish.resolution.warnings)
+            #
+            # The library hands these over as ``Finding``s, and what goes on the
+            # screen is still a list of sentences. An attribute is read by
+            # dashboard cards and automation templates that this integration does
+            # not own, so its shape is a published interface: turning it into a
+            # list of dicts to expose a code no kitchen has any use for would
+            # break every card reading it, to say nothing new. The level and the
+            # code stay where they are useful, which is the validator.
+            attributes["warnings"] = [f.message for f in dish.resolution.findings]
         if dish is not None and dish.unresolvable:
             # A component that is a book citation is never expanded and is left
             # off the shopping list on purpose, so the cook-along is the only

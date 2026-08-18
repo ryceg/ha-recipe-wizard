@@ -384,8 +384,8 @@ does sanction a choice, it is already a variant or a sibling.
 ## Validation
 
 `python -m recipe_wizard --list --validate`. Currently nine findings, no errors,
-all genuine — a unit divergence, an ambiguous "divided" salt the source never
-accounts for, a storage conflict, and six requests for masses where a volume
+all genuine — two unit divergences, an ambiguous "divided" salt the source never
+accounts for, a storage conflict, and five requests for masses where a volume
 measure is unreliable.
 
 **A finding is one record, and it names a node.** The consumer is an enrichment
@@ -417,6 +417,35 @@ what it can, and `schedule-max-delay`, `schedule-min-delay`,
 `maxDelayAfter` is rejected, not warned about. Gated at level 2 with the other
 graph rules, because a scrape declares no constraints to contradict. It adds
 nothing to today's corpus: still nine findings.
+
+**Resolver defects are findings too, under `resolve-*` codes.** A tin that will
+not hold a doubled cake, a batch below a recipe's stated minimum, a fractional
+batch rounded to whole eggs, a document with no stated yield: `Resolution` used to
+carry these as `warnings: list[str]`, the last part of the report that was not a
+`Finding`. Which meant they could not be counted, could not reach a validation
+report except flattened to one `component-warning`, and could only be told apart
+by their wording — `sensor.py`, `dish.py` and four tests all keyed on a substring
+of an English sentence. `resolve-vessel-capacity`, `resolve-vessel-timing`,
+`resolve-batch-rounded`, `resolve-batch-policy-unusable`, `resolve-does-not-scale`,
+`resolve-batch-constraint` and `resolve-yield-fallback` name them now, and
+`mass.py` owns `unit-divergence` and `unresolved-mass` rather than the validator
+deciding which it had by looking for the word *"disagree"* in a message another
+module wrote.
+
+These are **warnings, never errors**, and that is the one way a resolver finding
+differs from the validator's: nothing is wrong with the cake, and doubling it is
+still more batter than its tins hold. A resolver finding is about a document *at a
+scale*, and the resolution carrying it is a real one a cook can work from.
+
+**The tin answers the node question by not having one.** `rw:vessel` is declared
+on the document; it is not an ingredient, a step or a component, so there is no id
+to hand back to `RecipeGraph.node` and a step invented for it would send a fixer at
+a step that is not wrong. `resolve-vessel-capacity` therefore names no node, while
+`resolve-vessel-timing` — *"do not scale the time on step 15"* — names the step
+whose `rw:vesselOptions` say so, and `resolve-batch-rounded` names the basis
+ingredient it counted. Naming a node where there is one and nothing where there is
+not is the whole rule, and it is why these were worth converting rather than
+flattening into a single shrug about the batch.
 
 **The exit status is the roll-up.** `worst_level` returns the most serious level
 present, and `--validate` exits non-zero when that is an error, so the enrichment
@@ -457,14 +486,6 @@ until the ginger it seasons falls under the threshold and goes unreported.
   who cannot be in two `active` steps at once, and a reading of `rw:makeAhead`
   as a scheduling constraint rather than a note. Until those exist, interleaving
   would be invention dressed as a plan.
-* **`Resolution.warnings` is still a list of bare strings.** The vessel-capacity
-  message and the batch-policy renormalisations are the last part of the report
-  that is not a `Finding`, and they are stuck there for a reason that is not the
-  validator's: `dish.all_warnings()` hands them out as `(label, text)` pairs and
-  its callers do substring tests on `text`, so converting them is a signature
-  change across `dish.py`, `cookalong.py` and their tests rather than a rule
-  change. Doing it would also have to answer what a resolver finding's *node* is
-  when the subject is a tin that is too small.
 * **Conditional steps.** *"If the liquid evaporates excessively, add water."*
 * **Package-relative quantities.** *"¾ cup coconut milk (~½ can)"* — the other
   half-can is a real pantry problem.

@@ -51,7 +51,7 @@ from .resolve import (
     materialise,
     resolve,
     resolve_component,
-    vessel_warnings,
+    vessel_findings,
 )
 from .schedule import Plan, check_plan, rigid_chains, schedule
 from .shopping import (
@@ -135,6 +135,6 @@ __all__ = [
     "uses_of",
     "validate_library",
     "validate_recipe",
-    "vessel_warnings",
+    "vessel_findings",
     "worst_level",
 ]

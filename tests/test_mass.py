@@ -17,6 +17,7 @@ from custom_components.recipe_wizard.core.mass import (
     DENSITY_UNCERTAIN,
     FORM_UNKNOWN,
     NO_MEASURE,
+    UNIT_DIVERGENCE,
     ingredient_mass,
     mass_table,
 )
@@ -28,8 +29,16 @@ from custom_components.recipe_wizard.core.model import Ingredient
 
 
 def _mass(node: dict, canonical: str = "metric"):
-    """One line, reduced. Built as a document node so the reader is in the loop."""
-    return ingredient_mass(Ingredient.parse(node), food_bank(), canonical=canonical)
+    """One line, reduced. Built as a document node so the reader is in the loop.
+
+    ``recipe_id`` is required rather than defaulted because it goes into the
+    findings, and a finding that cannot say which document it is about is one an
+    enrichment loop cannot act on. An ``Ingredient`` does not know, so the caller
+    that does has to say -- here, a stand-in, since none of these lines belongs
+    to a real document.
+    """
+    return ingredient_mass(Ingredient.parse(node), food_bank(),
+                           canonical=canonical, recipe_id="urn:recipe:test/line")
 
 
 def test_a_form_sensitive_food_with_no_form_does_not_blame_the_density():
@@ -88,7 +97,7 @@ def test_a_to_taste_line_is_not_a_failure_to_reduce():
     assert result.grams is None
     assert result.confidence == "n/a"
     assert result.reason is None
-    assert result.warnings == []
+    assert result.findings == []
 
 
 # ---------------------------------------------------------------------------
@@ -135,12 +144,12 @@ def test_the_input_total_is_the_inputs_and_not_the_yield():
 
 
 def test_a_divergent_line_is_reported_once_and_not_once_per_reader():
-    """The failure that made the resolver throw warnings away.
+    """The failure that made the resolver throw its findings away.
 
     200 g in one column against 200 mL of butter (182 g) in the other is the
     chocolate buttercream's 18% divergence in miniature. The resolver used to
-    reduce every line twice and discard the second result's warnings purely so
-    this would not print twice; the table makes the warning reachable once.
+    reduce every line twice and discard the second result's findings purely so
+    this would not print twice; the table makes the finding reachable once.
     """
     recipe = build_recipe(ingredients=[
         ingredient("unsalted butter", mass=200, volume=(200, "ml"),
@@ -148,9 +157,15 @@ def test_a_divergent_line_is_reported_once_and_not_once_per_reader():
     ])
     table = mass_table(recipe, food_bank())
 
-    assert len([w for w in table.warnings if "disagree" in w]) == 1
+    divergences = [f for f in table.findings if f.code == UNIT_DIVERGENCE]
+    assert len(divergences) == 1
+    assert divergences[0].node == "#unsalted-butter", (
+        "the line, so a reader does not have to find which of them it was -- "
+        "which is what the message used to be the only record of"
+    )
     resolved = resolve(build_library(recipe), recipe.id)
-    assert len([w for w in resolved.warnings if "disagree" in w]) == 1
+    assert len([f for f in resolved.findings
+                if f.code == UNIT_DIVERGENCE]) == 1
 
 
 def test_the_table_refuses_a_line_the_recipe_does_not_have():

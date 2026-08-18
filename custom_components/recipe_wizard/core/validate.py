@@ -30,7 +30,7 @@ modules and printed by one function.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable
 
 from .adjust import AdjustmentError
@@ -144,6 +144,17 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
     def add(severity: str, code: str, message: str, node: str | None = None) -> None:
         findings.append(Finding(severity, code, where, message, node))
 
+    def adopt(produced: Iterable[Finding]) -> None:
+        """Take findings another module made about *this* document.
+
+        Only ``recipe`` is rewritten, and only because ``where`` falls back to the
+        name for a document with no ``@id`` -- a producer given the id has no way
+        to know that. The level, the code and the node are the producer's and are
+        left exactly as they were: re-deciding any of them here is what this
+        conversion exists to stop.
+        """
+        findings.extend(replace(finding, recipe=where) for finding in produced)
+
     # -- Always ---------------------------------------------------------
     try:
         materialise(library, recipe.id)
@@ -164,11 +175,13 @@ def validate_recipe(recipe: Recipe, library: Library) -> list[Finding]:
 
         for ing in recipe.ingredients:
             result = masses.result(ing.id)
-            for warning in result.warnings:
-                if "disagree" in warning:
-                    add(WARNING, "unit-divergence", warning, ing.id)
-                else:
-                    add(INFO, "unresolved-mass", warning, ing.id)
+            # Already findings, already levelled, already naming this line. This
+            # loop used to build them here from bare strings, and it decided
+            # which was a divergence by looking for the word "disagree" in the
+            # message -- so the severity of a finding hung on the wording of a
+            # sentence written in another module, and rewording that sentence
+            # would silently reclassify it.
+            adopt(result.findings)
 
             # A shaky density only matters if the ingredient is a meaningful
             # part of the batch. Nobody weighs 1 1/4 tsp of cumin, and being
@@ -390,8 +403,17 @@ def _component_findings(
             add(ERROR, "component-error", str(exc), comp.id)
             continue
 
-        for warning in resolution.warnings:
-            add(WARNING, "component-warning", f"{comp.label}: {warning}", comp.id)
+        # The child's findings, re-homed onto the use. The code and the level
+        # are the resolver's -- a tin that will not hold the frosting is not the
+        # same defect as a batch policy with no basis, and this used to flatten
+        # both to one ``component-warning`` at ``WARNING``. The *node* is the
+        # parent's ``#frosting`` rather than the sub-recipe's own line, per
+        # ``docs/format.md``: a finding about a component names the use, because
+        # that is the thing in *this* document a fix would be applied to. The
+        # sub-recipe's own document reports its own nodes when it is validated.
+        for finding in resolution.findings:
+            add(finding.level, finding.code,
+                f"{comp.label}: {finding.message}", comp.id)
 
         # Storage conflicts. An overlap on one method does not clear the
         # conflict: the buttercream says refrigerate and the cake says do not,

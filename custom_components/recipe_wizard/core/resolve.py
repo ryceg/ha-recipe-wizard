@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
 from .adjust import apply_adjustments
 from .library import Library
@@ -36,6 +37,28 @@ from .model import (
     Storage,
 )
 from .units import Quantity
+
+if TYPE_CHECKING:
+    from .validate import Finding
+
+#: What a batch does not fit in. The vessel is declared on the document and is
+#: not a node in the graph, so these name none: the subject is the whole batch.
+VESSEL_CAPACITY = "resolve-vessel-capacity"
+#: A time that comes from the tin and not from the quantity. This one *does*
+#: name a node -- the step whose ``rw:vesselOptions`` say so.
+VESSEL_TIMING = "resolve-vessel-timing"
+#: A fractional batch reconciled with something that comes in whole units. Names
+#: the basis ingredient it rounded on.
+BATCH_ROUNDED = "resolve-batch-rounded"
+#: A batch policy that could not be applied, so the scale was left alone.
+BATCH_POLICY_UNUSABLE = "resolve-batch-policy-unusable"
+#: A recipe that declares it does not scale, asked for a scale anyway.
+DOES_NOT_SCALE = "resolve-does-not-scale"
+#: A batch outside what the recipe says it can physically make, reported rather
+#: than raised because the caller asked for a resolution that is not strict.
+BATCH_CONSTRAINT = "resolve-batch-constraint"
+#: A document that states no mass yield, so the sum of its inputs stood in.
+YIELD_FALLBACK = "resolve-yield-fallback"
 
 
 class BatchConstraintError(ValueError):
@@ -120,7 +143,22 @@ class Resolution:
     steps: list[Step] = field(default_factory=list)
     storage: list[Storage] = field(default_factory=list)
     make_ahead: MakeAhead | None = None
-    warnings: list[str] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
+    """What the cook needs to hear about *this batch*, in the report's one shape.
+
+    Was ``warnings: list[str]``, and it was the last part of the report that was
+    not a ``Finding`` -- so the tin that will not hold a doubled cake could not
+    appear in a validation report, could not be counted, and could only be told
+    apart from the batch-policy renormalisation beside it by testing its wording.
+    ``dish.all_findings()`` and ``sensor.py`` both did exactly that.
+
+    A resolver finding is about a document *at a scale*, which is the one way it
+    differs from the validator's: nothing is wrong with the cake, and doubling it
+    is still more batter than its tins hold. So these are warnings and not errors
+    -- the resolution that carries them is a real one a cook can work from, per
+    ``dish.py``'s "a dish is built to be shown" -- and the ones whose subject is
+    the batch rather than a line name no node.
+    """
     change_log: list[str] = field(default_factory=list)
 
     #: Differences below this fraction of the request are treated as met.
@@ -247,32 +285,35 @@ def batch_yield_grams(
     them back. The yield decision is real domain logic and stays here; owning
     the arithmetic that feeds it was never part of the job.
 
-    The warnings returned are this decision's own. The per-line ones belong to
+    The findings returned are this decision's own. The per-line ones belong to
     the table, where they can be reported exactly once.
     """
-    warnings: list[str] = []
+    from .validate import Finding, WARNING
+
+    findings: list[Finding] = []
     total = masses.input_total_g
 
     if recipe.yield_basis in ("sumOfInputs", "measured"):
         if recipe.yield_basis == "sumOfInputs":
-            return total * (1 - recipe.mass_loss_factor), warnings
+            return total * (1 - recipe.mass_loss_factor), findings
 
     for quantity in recipe.stated_yield:
         try:
             if quantity.dimension == "mass":
                 from .units import to_grams
 
-                return to_grams(quantity), warnings
+                return to_grams(quantity), findings
         except Exception:  # noqa: BLE001 - a bad yield unit is not fatal here
             continue
 
     if total > 0:
-        warnings.append(
+        findings.append(Finding(
+            WARNING, YIELD_FALLBACK, recipe.id,
             f"{recipe.name!r} states no mass yield; falling back to the sum of "
-            f"its inputs ({total:.0f} g)"
-        )
-        return total * (1 - recipe.mass_loss_factor), warnings
-    return None, warnings
+            f"its inputs ({total:.0f} g)",
+        ))
+        return total * (1 - recipe.mass_loss_factor), findings
+    return None, findings
 
 
 def _apply_batch_policy(
@@ -280,45 +321,56 @@ def _apply_batch_policy(
     policy: BatchPolicy,
     raw_scale: float,
     masses: MassTable,
-) -> tuple[float, list[str]]:
-    """Step 7. Reconcile a fractional scale with things that come in whole units."""
-    warnings: list[str] = []
+) -> tuple[float, list[Finding]]:
+    """Step 7. Reconcile a fractional scale with things that come in whole units.
+
+    A policy lives on a parent's ``rw:ComponentUse`` and not on this document, so
+    the four findings about a policy that cannot be applied name no node: the
+    thing to fix is in the parent, which ``validate.py`` re-homes them onto. The
+    rounding itself does name one -- the basis ingredient it counted.
+    """
+    from .validate import Finding, WARNING
+
+    findings: list[Finding] = []
+
+    def add(code: str, message: str, node: str | None = None) -> None:
+        findings.append(Finding(WARNING, code, recipe.id, message, node))
+
     if policy.mode in ("scale", None):
-        return raw_scale, warnings
+        return raw_scale, findings
     if policy.mode == "fixed":
         if abs(raw_scale - 1.0) > 0.01:
-            warnings.append(
+            add(DOES_NOT_SCALE,
                 f"{recipe.name!r} does not scale; making one full batch instead "
-                f"of x{raw_scale:.2f}"
-            )
-        return 1.0, warnings
+                f"of x{raw_scale:.2f}")
+        return 1.0, findings
     if policy.mode == "wholeBatches":
         batches = max(1, math.ceil(raw_scale - 1e-9))
         if batches != raw_scale:
-            warnings.append(f"rounded up to {batches} whole batch(es)")
-        return float(batches), warnings
+            add(BATCH_ROUNDED, f"rounded up to {batches} whole batch(es)")
+        return float(batches), findings
 
     if policy.mode in ("roundUpToWholeUnit", "roundToWholeUnit"):
         if not policy.basis:
-            warnings.append("batch policy needs a 'basis' ingredient; scaling freely")
-            return raw_scale, warnings
+            add(BATCH_POLICY_UNUSABLE,
+                "batch policy needs a 'basis' ingredient; scaling freely")
+            return raw_scale, findings
         ing = recipe.ingredient(policy.basis)
         if ing is None:
-            warnings.append(
+            add(BATCH_POLICY_UNUSABLE,
                 f"batch policy basis {policy.basis!r} is not an ingredient of "
-                f"{recipe.name!r}; scaling freely"
-            )
-            return raw_scale, warnings
+                f"{recipe.name!r}; scaling freely")
+            return raw_scale, findings
         base_count = ing.count.value if ing.count is not None else None
         if base_count is None and ing.unit_mass is not None:
             base_mass = masses.grams(ing.id)
             if base_mass:
                 base_count = base_mass / ing.unit_mass.value
         if not base_count:
-            warnings.append(
-                f"{ing.name!r} has no countable amount to round on; scaling freely"
-            )
-            return raw_scale, warnings
+            add(BATCH_POLICY_UNUSABLE,
+                f"{ing.name!r} has no countable amount to round on; scaling freely",
+                ing.id)
+            return raw_scale, findings
 
         wanted = base_count * raw_scale
         rounded = (
@@ -329,14 +381,14 @@ def _apply_batch_policy(
         rounded = max(1, rounded)
         new_scale = rounded / base_count
         if abs(new_scale - raw_scale) > 1e-9:
-            warnings.append(
+            add(BATCH_ROUNDED,
                 f"{wanted:.2f} {ing.name} rounded to {rounded:g}; batch renormalised "
-                f"from x{raw_scale:.3g} to x{new_scale:.3g}"
-            )
-        return new_scale, warnings
+                f"from x{raw_scale:.3g} to x{new_scale:.3g}",
+                ing.id)
+        return new_scale, findings
 
-    warnings.append(f"unknown batch policy {policy.mode!r}; scaling freely")
-    return raw_scale, warnings
+    add(BATCH_POLICY_UNUSABLE, f"unknown batch policy {policy.mode!r}; scaling freely")
+    return raw_scale, findings
 
 
 def _scale_factor_for(ing_scaling: str, scale: float) -> float:
@@ -370,9 +422,9 @@ def resolve(
     # Every line reduced to grams once, after the patches and before the scale.
     # The yield, the base masses and each line's confidence all read from here.
     masses = mass_table(recipe, library.foods)
-    warnings = list(masses.warnings)
-    batch_yield, yield_warnings = batch_yield_grams(recipe, masses)
-    warnings.extend(yield_warnings)
+    findings = list(masses.findings)
+    batch_yield, yield_findings = batch_yield_grams(recipe, masses)
+    findings.extend(yield_findings)
 
     # Steps 5 and 6: what does the caller need, and what factor is that?
     requested_g: float | None = None
@@ -388,8 +440,8 @@ def resolve(
 
     # Step 7
     policy = batch_policy or BatchPolicy()
-    scale, policy_warnings = _apply_batch_policy(recipe, policy, raw_scale, masses)
-    warnings.extend(policy_warnings)
+    scale, policy_findings = _apply_batch_policy(recipe, policy, raw_scale, masses)
+    findings.extend(policy_findings)
 
     # Steps 9-10: scale, then recompute what is actually produced. Recomputing
     # matters because 'fixed' ingredients do not scale, so the yield is not
@@ -423,6 +475,8 @@ def resolve(
     produced_g = produced * (1 - recipe.mass_loss_factor) if produced else None
 
     # Step 8, deferred to here so the message can quote the real produced mass.
+    from .validate import Finding, WARNING
+
     limits = recipe.batch_constraints
     if produced_g is not None and limits.min_yield_g and produced_g < limits.min_yield_g:
         message = (
@@ -432,7 +486,7 @@ def resolve(
         )
         if strict:
             raise BatchConstraintError(message)
-        warnings.append(message)
+        findings.append(Finding(WARNING, BATCH_CONSTRAINT, recipe.id, message))
     if produced_g is not None and limits.max_yield_g and produced_g > limits.max_yield_g:
         message = (
             f"{recipe.name!r} cannot be made at {produced_g:.0f} g: its maximum "
@@ -441,9 +495,9 @@ def resolve(
         )
         if strict:
             raise BatchConstraintError(message)
-        warnings.append(message)
+        findings.append(Finding(WARNING, BATCH_CONSTRAINT, recipe.id, message))
 
-    warnings.extend(vessel_warnings(recipe, scale, produced_g))
+    findings.extend(vessel_findings(recipe, scale, produced_g))
 
     return Resolution(
         recipe_id=recipe.id,
@@ -457,7 +511,7 @@ def resolve(
         ingredients=resolved,
         steps=scaled_steps(recipe, scale),
         storage=recipe.storage,
-        warnings=warnings,
+        findings=findings,
         change_log=change_log,
     )
 
@@ -480,29 +534,43 @@ def scaled_steps(recipe: Recipe, scale: float) -> list[Step]:
     return steps
 
 
-def vessel_warnings(
+def vessel_findings(
     recipe: Recipe, scale: float, produced_g: float | None
-) -> list[str]:
+) -> list[Finding]:
     """What the cook needs to hear when a recipe is scaled.
 
     Doubling is a routine thing to do and it is where a format that only scales
     ingredient quantities becomes actively misleading. Double the cake and you
     have 2.4 kg of batter, two tins that hold 1.1 kg between them, and a bake
     time that is emphatically not 60 minutes.
+
+    **The two findings here answer the node question differently, and that is the
+    point.** A tin that will not hold the batch has no node: ``rw:vessel`` is
+    declared on the document, it is not an ingredient, a step or a component, and
+    it is not in the graph -- so there is nothing to hand back to
+    ``RecipeGraph.node``, and inventing a step for it would send a fixer at a step
+    that is not wrong. A bake time that comes from the tin *does* have one: the
+    step whose ``rw:vesselOptions`` say so is the step a reader has to go and look
+    at. Naming a node where there is one and ``None`` where there is not is the
+    whole of the rule, and it is why this was worth converting rather than
+    flattening both into the same shrug.
     """
     if abs(scale - 1.0) < 1e-9:
         return []
 
-    out: list[str] = []
+    from .validate import Finding, WARNING
+
+    out: list[Finding] = []
     vessel = recipe.vessel
     capacity = vessel.total_capacity_g if vessel else None
     if capacity and produced_g and produced_g > capacity * 1.02:
         needed = produced_g / (capacity / vessel.count)
-        out.append(
+        out.append(Finding(
+            WARNING, VESSEL_CAPACITY, recipe.id,
             f"scaled to x{scale:g} this makes {produced_g:.0f} g, but "
             f"{vessel.count} x {vessel.name} holds about {capacity:.0f} g - "
-            f"you need roughly {needed:.0f} of them"
-        )
+            f"you need roughly {needed:.0f} of them",
+        ))
 
     for step in recipe.steps:
         if not step.vessel_options:
@@ -511,10 +579,12 @@ def vessel_warnings(
             f"{o.vessel}: {o.duration.human()}" if o.duration else o.vessel
             for o in step.vessel_options
         )
-        out.append(
+        out.append(Finding(
+            WARNING, VESSEL_TIMING, recipe.id,
             f"do not scale the time on step {step.position}; it comes from the "
-            f"vessel, not the quantity. Options given: {options}"
-        )
+            f"vessel, not the quantity. Options given: {options}",
+            step.id,
+        ))
         break
 
     return out

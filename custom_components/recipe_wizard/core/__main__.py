@@ -111,8 +111,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Storage: not suitable for {method}")
     print()
     print(render_table(resolution))
-    for warning in resolution.warnings:
-        print(f"! {warning}")
+    for finding in resolution.findings:
+        print(f"! {finding.message}")
 
     if args.components:
         for index, node in enumerate(dish.walk()):
@@ -126,8 +126,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"    {ingredient}")
             for entry in node.resolution.change_log:
                 print(f"    . {entry}")
-            for warning in node.resolution.warnings:
-                print(f"    ! {warning}")
+            for finding in node.resolution.findings:
+                print(f"    ! {finding.message}")
 
     if args.plan:
         plan = schedule(resolution)

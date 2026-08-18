@@ -20,6 +20,10 @@ from custom_components.recipe_wizard.core import (
 )
 from custom_components.recipe_wizard.core.dish import ComponentCycleError
 from custom_components.recipe_wizard.core.library import LibraryError
+from custom_components.recipe_wizard.core.resolve import (
+    BATCH_CONSTRAINT,
+    VESSEL_CAPACITY,
+)
 
 QEEMA = "urn:recipe:rte/qeema"
 
@@ -302,20 +306,20 @@ def test_a_variant_inherits_its_bases_components():
 # ---------------------------------------------------------------------------
 
 
-def test_warnings_keep_the_component_they_came_from(library):
+def test_findings_keep_the_component_they_came_from(library):
     """"The tins will not hold it" is about the cake and not about the
-    frosting. Flattened into one list the cook cannot tell, and a warning
-    attached to the wrong thing is worse than no warning."""
+    frosting. Flattened into one list the cook cannot tell, and a finding
+    attached to the wrong thing is worse than no finding."""
     dish = resolve_dish(library, CAKE, batches=2)
-    warnings = dish.all_warnings()
+    findings = dish.all_findings()
 
-    assert warnings, "doubling the cake must warn about the tins"
-    assert all(label == dish.label for label, _ in warnings)
-    assert any("holds about" in text for _, text in warnings)
+    assert findings, "doubling the cake must report the tins"
+    assert all(label == dish.label for label, _ in findings)
+    assert any(f.code == VESSEL_CAPACITY for _, f in findings)
 
 
-def test_a_component_warning_is_not_lost_in_the_parents_list():
-    """The child carries its own warnings, and the only thing that reads them
+def test_a_component_finding_is_not_lost_in_the_parents_list():
+    """The child carries its own findings, and the only thing that reads them
     is a walk of the tree."""
     library = _library(
         _recipe("urn:a", "A", components=[_use("Sauce", "urn:sauce")]),
@@ -337,11 +341,18 @@ def test_a_component_warning_is_not_lost_in_the_parents_list():
     )
 
     dish = resolve_dish(library, "urn:a")
-    labelled = dish.all_warnings()
+    labelled = dish.all_findings()
 
-    assert dish.resolution.warnings == []
-    assert [label for label, _ in labelled] == ["Sauce"]
-    assert "minimum batch" in labelled[0][1]
+    assert dish.resolution.findings == []
+    assert [label for label, _ in labelled] == ["Sauce"], (
+        "the label is the use's, and it is the only thing that says which use a "
+        "finding belongs to when one sub-recipe is used twice"
+    )
+    assert labelled[0][1].code == BATCH_CONSTRAINT
+    assert labelled[0][1].recipe == "urn:sauce", (
+        "the finding names the document it is true of, which is the sauce -- the "
+        "label says which use, the recipe id says which document"
+    )
 
 
 def test_a_parents_local_override_is_visible_in_the_change_log(library):
