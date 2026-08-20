@@ -144,7 +144,12 @@ met, two constraints that cannot both hold — comes back as a finding under a
 `schedule-*` code, from `--plan` and `--validate` alike. See § Validation.
 
 Hands-on and hands-off totals are computed by sweeping the timeline, not summing
-durations, which double-counts overlapping branches.
+durations, which double-counts overlapping branches. A third total, **waiting**,
+covers the stretches where no step is running at all: a `minDelayAfter` is a
+constraint rather than a step, so the brownies' three-hour chill belongs to none
+of the attention classes, and it is 195 of that recipe's 420 minutes. The three
+partition the timeline exactly, because they are printed beside a total and that
+is what printing them there claims.
 
 ### The cook-along
 
