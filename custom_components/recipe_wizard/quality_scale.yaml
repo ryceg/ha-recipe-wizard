@@ -47,8 +47,13 @@ rules:
   brands:
     status: todo
     comment: >-
-      Needs an icon.png and a pull request to home-assistant/brands. No asset has
-      been invented for it.
+      Still todo, and deliberately: this rule means being listed in
+      home-assistant/brands, which is a pull request to another repository and
+      cannot be satisfied from here. What does exist now is
+      custom_components/recipe_wizard/brand/icon.png -- a 256x256 chef's hat,
+      generated rather than designed -- which is the fallback HACS validation
+      accepts, so that check passes while this rule does not. Replace the asset
+      before opening the brands pull request if a real one is ever drawn.
   common-modules:
     status: done
     comment: >-
