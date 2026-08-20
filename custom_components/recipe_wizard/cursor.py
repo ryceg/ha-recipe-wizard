@@ -2,7 +2,7 @@
 
 ``core/cookalong.py`` is stateless over a cursor on purpose, so something outside
 it has to hold "which step am I on". This module is that something, and it makes
-two decisions worth arguing.
+the decisions below, each of which had an obvious alternative that is wrong.
 
 **The cursor is persisted in the config entry's options.** Not in
 ``entry.runtime_data``, which is gone on restart -- and a cook who restarts Home
@@ -17,6 +17,11 @@ a recipe is on the go at all. The entry's options are a dict Home Assistant
 already persists, and ``async_update_entry`` is the only sanctioned way to write
 one. It is also what notifies the sensors, which is why nothing here mutates the
 entry directly.
+
+**The position of record is a step id, not the index.** ``(step_recipe_id,
+step_id)`` is what a cook's place is written down as, because a cook-along's
+walk is renumbered by a step added to any recipe in the dish -- including a
+sub-recipe the cook was not editing. See ``docs/adr/0003``.
 
 **The resolved dish is cached beside the cursor.** ``cook_along()`` reads files.
 Home Assistant calls ``native_value`` on every state write, so a sensor property
@@ -68,30 +73,54 @@ OPTION_COOK_ALONG = "cook_along"
 
 @dataclass(frozen=True, slots=True)
 class SavedCursor:
-    """The four facts that survive a restart, and nothing derived from them.
+    """The facts that survive a restart, and nothing derived from them.
 
     ``started_at`` is when the cook arrived at this step, not when the recipe
     began: it is the only thing that can turn a step's *stated* duration into a
     wall-clock estimate, and it is reset every time the cursor moves.
+
+    **The position of record is ``(step_recipe_id, step_id)``, not ``cursor``.**
+    An index is `#step-3`, which this project refuses to write anywhere else, and
+    a cook-along is exactly where it goes wrong: the walk is the dish's own steps
+    followed by each component's, so adding a step to a *sub-recipe* — a
+    different file, one the cook was not editing — renumbers everything after it.
+    Recipes are edited outside Home Assistant while it is running; that is why
+    the coordinator polls at all. ``cursor`` is kept because it is what "12/16"
+    is made of and what a cursor saved by an older version holds.
     """
 
     recipe_id: str | None = None
     batches: float = 1.0
     cursor: int = 0
     started_at: datetime | None = None
+    step_recipe_id: str | None = None
+    """Which recipe in the dish the step belongs to. Needed because a step id is
+    unique in a recipe and not in a dish — the cake and its buttercream both have
+    an ``#add-sugar``."""
+    step_id: str | None = None
+    """``None`` in two states that both fall back to the index and both want it:
+    a cursor written before this pair existed, and a cook-along run off its end,
+    where there is no step to name."""
 
     @property
     def running(self) -> bool:
         """Whether there is a cook-along at all. ``False`` is the idle state."""
         return self.recipe_id is not None
 
-    def moved_to(self, cursor: int) -> "SavedCursor":
-        """The same cook-along at another step, arrived at now."""
+    def moved_to(self, cursor: int, step: "CursorStep | None" = None) -> "SavedCursor":
+        """The same cook-along at another step, arrived at now.
+
+        ``step`` is what the index resolved to, and writing its id down here is
+        the whole migration: a cursor saved by an older version starts being
+        addressed properly the first time the cook moves.
+        """
         return SavedCursor(
             recipe_id=self.recipe_id,
             batches=self.batches,
             cursor=cursor,
             started_at=dt_util.utcnow(),
+            step_recipe_id=None if step is None else step.recipe_id,
+            step_id=None if step is None else step.step.step_id,
         )
 
     def as_options(self) -> dict[str, Any]:
@@ -101,6 +130,8 @@ class SavedCursor:
             "batches": self.batches,
             "cursor": self.cursor,
             "started_at": None if self.started_at is None else self.started_at.isoformat(),
+            "step_recipe_id": self.step_recipe_id,
+            "step_id": self.step_id,
         }
 
     @classmethod
@@ -119,12 +150,37 @@ class SavedCursor:
         except (TypeError, ValueError):
             return cls()
         started = raw.get("started_at")
+        step_recipe_id = raw.get("step_recipe_id")
+        step_id = raw.get("step_id")
         return cls(
             recipe_id=str(raw["recipe_id"]),
             batches=batches,
             cursor=max(cursor, 0),
             started_at=dt_util.parse_datetime(started) if isinstance(started, str) else None,
+            # Absent in anything written before the pair existed, which is the
+            # case the index is still carried for. Not a migration step: the
+            # first move records it, and until then the index is what there is.
+            step_recipe_id=str(step_recipe_id) if isinstance(step_recipe_id, str) else None,
+            step_id=str(step_id) if isinstance(step_id, str) else None,
         )
+
+
+def locate_saved(cook_along: CookAlong, saved: SavedCursor) -> CursorStep | None:
+    """Where a saved cursor points into this cook-along *as it stands now*.
+
+    Module-level because two callers need the same answer and must not disagree
+    about it: the entities, which read it to know what to show, and the movement
+    actions, which read it to know what "next" is one past. An action adding 1 to
+    the saved index while the entity looked the step up by id would move the cook
+    from a step they were not on.
+
+    ``None`` where the id no longer names a step of the dish. Whether that is a
+    problem or an ordinary finished cook-along is the caller's to say, and they
+    say different things.
+    """
+    if saved.step_id is None:
+        return cook_along.at(saved.cursor)
+    return cook_along.locate(saved.step_recipe_id, saved.step_id)
 
 
 def saved_cursor(entry: RecipeWizardConfigEntry) -> SavedCursor:
@@ -245,9 +301,7 @@ class CookAlongCursor:
         ):
             await self._async_resolve(library, saved)
 
-        self.step = (
-            None if self.cook_along is None else self.cook_along.at(saved.cursor)
-        )
+        self.step = None if self.cook_along is None else self._locate(saved)
         self._arm_check_timer()
         for update_callback in list(self._listeners):
             update_callback()
@@ -281,6 +335,36 @@ class CookAlongCursor:
             self.problem = None
             self._resolved_for = (saved.recipe_id, saved.batches)
             self._resolved_from = library
+
+    @callback
+    def _locate(self, saved: SavedCursor) -> CursorStep | None:
+        """The saved position in the dish *as it stands now*.
+
+        By id where one was written down, and by index only where there is none
+        to use -- a cursor from before the pair was saved, or a cook-along run
+        off its end. Looking up by id is the point: the walk is renumbered by any
+        insertion above the cook, including one in a component's own file, and an
+        index quietly survives that pointing at the wrong step.
+
+        A step that has genuinely gone -- deleted while the cook was on it -- is
+        a ``problem`` and not a silent jump. The sensor reports *unknown* for
+        that, which is true, where falling back to the index would have reported
+        a step the cook is not on with no way to tell.
+
+        One edge is accepted rather than solved: a finished cook-along holds no
+        step id, so if a step is *added* to a dish the cook has finished, the
+        index that used to be off the end lands on the new last step and the
+        cook-along un-finishes. Distinguishing "finished" from "not started"
+        already needs the four saved facts; a fifth to distinguish it from
+        "finished, then the recipe grew" is not worth carrying.
+        """
+        assert self.cook_along is not None
+        found = locate_saved(self.cook_along, saved)
+        if found is None and saved.step_id is not None:
+            self.problem = (
+                f"{saved.step_id} is no longer a step of {saved.recipe_id}"
+            )
+        return found
 
     @callback
     def _forget(self) -> None:

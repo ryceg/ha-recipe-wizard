@@ -327,6 +327,40 @@ class CookAlong:
             for index, (rid, label, step) in enumerate(entries)
         ]
 
+    def locate(
+        self,
+        recipe_id: str | None,
+        step_id: str,
+        *,
+        include_optional: bool = True,
+    ) -> CursorStep | None:
+        """Where one step sits now, addressed the way this format addresses things.
+
+        The counterpart to ``at``, and the one a *saved* position should use. An
+        index is `#step-3` — the thing this project refuses to write anywhere
+        else, because it stops meaning what it meant the moment a step is
+        inserted above it. For a cook-along the insertion need not even be in the
+        recipe being cooked: the cake's walk is its own eighteen steps followed
+        by the buttercream's three, so adding a step to the *buttercream* renumbers
+        the cake from index 18 on, and a cook holding index 20 is silently moved.
+
+        ``recipe_id`` is required alongside because a step id is unique in a
+        recipe and not in a dish — the cake and its buttercream both have an
+        ``#add-sugar``, which is the same reason the sensor's state cannot be a
+        step id. ``None`` matches the first recipe carrying the step, which is
+        what a caller with only half the pair can honestly ask for.
+
+        Ids are compared bare or fully qualified, matching ``step`` above and
+        ``graph.py``'s rule that a reference means the same thing either way.
+        """
+        short = fragment(step_id)
+        for entry in self.sequence(include_optional=include_optional):
+            if entry.step.step_id not in (step_id, short):
+                continue
+            if recipe_id is None or entry.recipe_id == recipe_id:
+                return entry
+        return None
+
     def at(self, cursor: int, *, include_optional: bool = True) -> CursorStep | None:
         """The step at ``cursor``, or ``None`` when the cursor is off the end.
 

@@ -515,3 +515,99 @@ def test_a_state_with_no_stated_time_is_a_step_to_check_not_soft_time():
         "the premise: the whisk does occupy the timeline, it just states no time"
     )
     assert plan.step("#whisk").stated_s is None
+
+
+# ---------------------------------------------------------------------------
+# Addressing a position: by id, because an index is #step-3
+# ---------------------------------------------------------------------------
+
+
+def test_a_step_is_found_by_its_id_and_the_recipe_it_belongs_to(library):
+    cook = cook_along(library, CAKE)
+    found = cook.locate(CAKE, "#bake")
+    assert found is not None
+    assert found.step.step_id == "#bake"
+    assert cook.at(found.cursor).step.step_id == "#bake"
+
+
+def test_a_step_id_is_matched_bare_or_fully_qualified(library):
+    """``graph.py``'s rule: a reference means the same thing written either way,
+    and a saved cursor may hold either."""
+    cook = cook_along(library, CAKE)
+    bare = cook.locate(CAKE, "#bake")
+    qualified = cook.locate(CAKE, f"{CAKE}#bake")
+    assert bare is not None and qualified is not None
+    assert bare.cursor == qualified.cursor
+
+
+def test_the_recipe_is_needed_because_a_step_id_is_not_unique_in_a_dish(library):
+    """The cake and its buttercream both have an ``#add-sugar``. Addressing one
+    by id alone would find whichever came first in the walk."""
+    cook = cook_along(library, CAKE)
+    owners = {
+        entry.recipe_id
+        for entry in cook.sequence()
+        if entry.step.step_id == "#add-sugar"
+    }
+    assert len(owners) == 2, "premise: two recipes in this dish use #add-sugar"
+    for owner in owners:
+        found = cook.locate(owner, "#add-sugar")
+        assert found is not None and found.recipe_id == owner
+
+
+def test_a_step_that_is_no_longer_in_the_dish_is_not_found(library):
+    assert cook_along(library, CAKE).locate(CAKE, "#no-such-step") is None
+
+
+def test_a_step_added_to_a_component_does_not_move_the_step_the_cook_is_on():
+    """The whole reason a saved position is a pair and not an index.
+
+    The walk is the parent's steps then the component's, so inserting a step
+    *into the component* -- a different file, one nobody was editing -- renumbers
+    every position from there on. The id does not move, which is what a saved
+    cursor has to be addressed by.
+    """
+    def library_with(extra_frosting_steps):
+        frosting = build_recipe(
+            id="urn:recipe:test/frosting",
+            name="Buttercream",
+            ingredients=[ingredient("butter", mass=250)],
+            steps=[
+                *extra_frosting_steps,
+                step("#cream-butter", consumes=["#butter"],
+                     produces=("#creamed", "Creamed butter")),
+            ],
+        )
+        parent = build_recipe(
+            id="urn:recipe:test/frosted",
+            name="Frosted cake",
+            ingredients=[ingredient("flour", mass=250)],
+            components=[component("Buttercream", id="#frosting",
+                                  recipe=frosting.id)],
+            steps=[
+                step("#bake", consumes=["#flour"],
+                     produces=("#layers", "Baked layers")),
+                step("#frost", consumes=["#layers", "#frosting"],
+                     produces=("#cake", "Frosted cake")),
+            ],
+        )
+        return build_library(parent, frosting), parent.id
+
+    library, parent_id = library_with([])
+    before = cook_along(library, parent_id)
+    creaming = before.locate("urn:recipe:test/frosting", "#cream-butter")
+    assert creaming is not None
+
+    # The same dish with one step added ahead of the creaming, inside the
+    # component: the butter now has to be softened before it can be creamed.
+    grown_library, parent_id = library_with([
+        step("#soften", consumes=["#butter"], produces=("#soft", "Softened butter")),
+    ])
+    after = cook_along(grown_library, parent_id)
+    assert after.total_steps() == before.total_steps() + 1, "premise: it grew"
+    moved = after.locate("urn:recipe:test/frosting", "#cream-butter")
+    assert moved is not None
+    assert moved.cursor == creaming.cursor + 1, "the index moved"
+    assert after.at(creaming.cursor).step.step_id != "#cream-butter", (
+        "and the old index now names a different step"
+    )

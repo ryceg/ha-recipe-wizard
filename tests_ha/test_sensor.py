@@ -10,6 +10,7 @@ look like anything at all until the event loop stalls in someone's kitchen.
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.recipe_wizard.const import DOMAIN
+from custom_components.recipe_wizard.core.cookalong import cook_along
 from custom_components.recipe_wizard.cursor import (
     OPTION_COOK_ALONG,
     SavedCursor,
@@ -49,11 +51,22 @@ async def start(
     cursor: int = 0,
     batches: float = 1.0,
 ) -> None:
-    """Put the cursor somewhere, the way an action does, and let it settle."""
+    """Put the cursor somewhere, the way an action does, and let it settle.
+
+    The step id goes down with the index because that is what the real action
+    writes -- the position of record is ``(recipe, step)``, and a helper that
+    saved only the index would leave every test in this file exercising the
+    fallback path kept for cursors written by older versions.
+    """
+    dish = cook_along(
+        entry.runtime_data.coordinator.data, recipe_id, batches=batches
+    )
     async_save_cursor(
         hass,
         entry,
-        SavedCursor(recipe_id=recipe_id, batches=batches).moved_to(cursor),
+        SavedCursor(recipe_id=recipe_id, batches=batches).moved_to(
+            cursor, dish.at(cursor)
+        ),
     )
     await hass.async_block_till_done()
 
@@ -100,12 +113,21 @@ async def test_the_state_is_finished_past_the_last_step(
     assert hass.states.get(STEP).state == "finished"
 
 
-async def test_a_cursor_left_beyond_a_shortened_recipe_reads_as_finished(
+async def test_a_recipe_rewritten_under_the_cook_is_unknown_not_finished(
     hass: HomeAssistant, loaded_entry: MockConfigEntry, recipes_dir: Path
 ):
     """Recipes are edited outside Home Assistant while a cook-along is saved
     against them. Crashing the platform because a document lost a step would take
-    the whole library down over one stale integer."""
+    the whole library down over one stale integer.
+
+    This used to read *finished*, which was index arithmetic rather than a
+    decision: the saved integer fell off the end of a shorter recipe and ``at``
+    returns ``None`` for finished and not-started alike. Now that the position is
+    a step id, the honest answer is that ``#serve`` is gone and the cook's
+    position with it -- the same argument the sibling test below makes about
+    *idle*. A cook-along the cook really did finish still reads *finished*,
+    because running off the end writes no step id to lose.
+    """
     await start(hass, loaded_entry, BROWNIES, cursor=15)
     assert hass.states.get(STEP).state == "16/16"
 
@@ -120,7 +142,9 @@ async def test_a_cursor_left_beyond_a_shortened_recipe_reads_as_finished(
     await loaded_entry.runtime_data.coordinator.async_refresh()
     await hass.async_block_till_done()
 
-    assert hass.states.get(STEP).state == "finished"
+    state = hass.states.get(STEP)
+    assert state.state == "unknown"
+    assert "#serve" in state.attributes["problem"]
 
 
 async def test_a_recipe_deleted_mid_cook_is_unknown_rather_than_idle(
@@ -556,3 +580,126 @@ async def test_the_cook_is_asked_without_touching_anything(
     assert hass.states.get(STEP).attributes["awaiting_check"] is True, (
         "the state was rewritten by the estimate elapsing, not by the cook"
     )
+
+
+async def test_a_step_added_to_a_sub_recipe_does_not_move_the_cook(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, recipes_dir: Path
+):
+    """The failure a saved position had to stop being an index to prevent.
+
+    The cake's walk is its own eighteen steps then the buttercream's three.
+    Enrich ``vanilla-buttercream.json`` -- a different file, and not the recipe
+    the cook thinks they are cooking -- and every position from eighteen on means
+    a different step. A cursor that is an index follows the number and quietly
+    moves the cook; a cursor addressed by ``(recipe, step)`` does not.
+    """
+    await start(hass, loaded_entry, CAKE, cursor=18)
+    was = hass.states.get(STEP)
+    assert was.attributes["recipe"] == "Vanilla buttercream"
+    creaming = was.attributes["step_id"]
+    of_before = was.attributes["of"]
+
+    path = recipes_dir / "vanilla-buttercream.json"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["recipeInstructions"].insert(0, {
+        "@type": "HowToStep",
+        "@id": "#warm-the-bowl",
+        "position": 0,
+        "text": "Warm the mixer bowl so the butter does not seize.",
+        "rw:consumes": [{"@id": "#butter"}],
+        "rw:produces": [{"@id": "#warmed", "name": "Butter in a warm bowl"}],
+        "rw:attention": "active",
+    })
+    for existing in document["recipeInstructions"][1:]:
+        if existing["@id"] == "#cream-butter":
+            existing["rw:consumes"] = [{"@id": "#warmed"}]
+    path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+
+    await loaded_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    now = hass.states.get(STEP)
+    assert now.attributes["of"] == of_before + 1, "premise: the dish grew a step"
+    assert now.attributes["step_id"] == creaming, "the cook did not move"
+    assert now.state == f"{now.attributes['step_number']}/{now.attributes['of']}"
+    assert now.attributes["step_number"] == 20, "but their position renumbered"
+
+
+async def test_a_step_deleted_under_the_cook_is_unknown_rather_than_a_silent_jump(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, recipes_dir: Path
+):
+    """Falling back to the index here would show a real step the cook is not on,
+    which is worse than admitting the position is lost."""
+    await start(hass, loaded_entry, CAKE, cursor=18)
+    assert hass.states.get(STEP).attributes["step_id"] == "#cream-butter"
+
+    path = recipes_dir / "vanilla-buttercream.json"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["recipeInstructions"] = [
+        s for s in document["recipeInstructions"] if s["@id"] != "#cream-butter"
+    ]
+    for remaining in document["recipeInstructions"]:
+        remaining["rw:consumes"] = [{"@id": "#butter"}]
+        break
+    path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+
+    await loaded_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(STEP)
+    assert state.state == "unknown"
+    assert "#cream-butter" in state.attributes["problem"]
+
+
+async def test_a_cursor_saved_before_ids_were_recorded_still_reads(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+):
+    """Upgrades: an entry written by an older version holds an index and no pair.
+    It keeps working, and the first move records the pair."""
+    hass.config_entries.async_update_entry(
+        loaded_entry,
+        options={
+            **loaded_entry.options,
+            OPTION_COOK_ALONG: {"recipe_id": CAKE, "batches": 1.0, "cursor": 18},
+        },
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get(STEP)
+    assert state.state == "19/21"
+    assert state.attributes["step_id"] == "#cream-butter"
+
+
+async def test_the_dish_and_the_step_can_belong_to_different_recipes(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+):
+    """``recipe_id`` is the *step's* recipe and ``dish_id`` is the dish's, and
+    once the cook is frosting a cake those are two different documents.
+
+    A caller with only ``recipe_id`` cannot ask the library for the dish. The
+    panel was reduced to matching the ``dish`` label against recipe *names* to
+    get back to an id, which is exactly what ``CONTEXT.md`` means by identity
+    living in an ``@id``: two recipes may share a name, a rename breaks the
+    match, and the fallback fetched the buttercream instead of the cake.
+    """
+    await start(hass, loaded_entry, CAKE, cursor=18)
+    attributes = hass.states.get(STEP).attributes
+    assert attributes["dish_id"] == CAKE
+    assert attributes["recipe_id"] == "urn:recipe:rte/vanilla-buttercream"
+    assert attributes["dish"] == "My Very Best Vanilla Cake"
+
+
+async def test_the_dish_is_named_by_id_even_when_the_position_is_lost(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, recipes_dir: Path
+):
+    """The reload case the name-matching fallback got wrong: a surface opening
+    fresh has nothing remembered, so the attribute has to be there even when the
+    cursor cannot be resolved."""
+    await start(hass, loaded_entry, CAKE, cursor=18)
+    (recipes_dir / "vanilla-buttercream.json").unlink()
+    await loaded_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(STEP)
+    assert state.state == "unknown"
+    assert state.attributes["dish_id"] == CAKE

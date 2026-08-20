@@ -153,6 +153,10 @@ class CurrentStepSensor(CookAlongSensor):
             return None
         if cursor.problem is not None:
             return {
+                # Both names, and the same value: there is no step to belong to
+                # a different recipe, and a caller should not have to know that
+                # this branch is the one where the two agree.
+                "dish_id": cursor.saved.recipe_id,
                 "recipe_id": cursor.saved.recipe_id,
                 "batches": cursor.saved.batches,
                 "problem": cursor.problem,
@@ -160,9 +164,24 @@ class CurrentStepSensor(CookAlongSensor):
 
         dish = cursor.cook_along
         attributes: dict[str, Any] = {
+            # The **dish's** recipe, which is not the step's. ``recipe_id`` below
+            # is overwritten with whichever recipe the current step belongs to --
+            # the buttercream, once the cook is frosting the cake -- so a caller
+            # that wanted to ask the library for the dish had nothing to ask
+            # with. The panel was reduced to matching ``dish`` against recipe
+            # *names*, and identity lives in an ``@id``, never in a label.
+            "dish_id": cursor.saved.recipe_id,
             "dish": None if dish is None else dish.label,
             "batches": cursor.saved.batches,
-            "step_number": cursor.saved.cursor + 1,
+            # The *resolved* position, never the saved index. Those were the same
+            # number until a saved cursor started being addressed by step id, and
+            # a card doing its own arithmetic on this attribute would have
+            # disagreed with the state beside it the moment a sub-recipe grew a
+            # step under the cook.
+            "step_number": (
+                cursor.saved.cursor + 1 if cursor.step is None
+                else cursor.step.cursor + 1
+            ),
             "of": cursor.total_steps,
         }
         if dish is not None and dish.resolution.findings:

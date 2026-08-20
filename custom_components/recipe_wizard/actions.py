@@ -50,7 +50,7 @@ from .const import DOMAIN
 from .core.cookalong import CookAlong, cook_along
 from .core.library import Library, LibraryError
 from .coordinator import RecipeWizardConfigEntry
-from .cursor import SavedCursor, async_save_cursor, saved_cursor
+from .cursor import SavedCursor, async_save_cursor, locate_saved, saved_cursor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ async def _async_start_cook_along(call: ServiceCall) -> None:
     async_save_cursor(
         hass,
         entry,
-        SavedCursor(recipe_id=recipe_id, batches=batches).moved_to(0),
+        SavedCursor(recipe_id=recipe_id, batches=batches).moved_to(0, dish.at(0)),
     )
 
 
@@ -128,15 +128,16 @@ async def _async_next_step(call: ServiceCall) -> None:
     hass = call.hass
     entry = _loaded_entry(hass)
     saved = _running(entry)
-    total = (
-        await _async_cook_along(hass, _library(entry), saved.recipe_id, saved.batches)
-    ).total_steps()
+    dish = await _async_cook_along(
+        hass, _library(entry), saved.recipe_id, saved.batches
+    )
+    here = _here(dish, saved)
 
-    if saved.cursor >= total:
+    if here >= dish.total_steps():
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="already_finished"
         )
-    async_save_cursor(hass, entry, saved.moved_to(saved.cursor + 1))
+    async_save_cursor(hass, entry, saved.moved_to(here + 1, dish.at(here + 1)))
 
 
 async def _async_previous_step(call: ServiceCall) -> None:
@@ -144,11 +145,18 @@ async def _async_previous_step(call: ServiceCall) -> None:
     hass = call.hass
     entry = _loaded_entry(hass)
     saved = _running(entry)
-    if saved.cursor <= 0:
+    # Resolved here where it once was not, because "back one" is one step back
+    # from where the cook *is*, and that is a lookup by id rather than the index
+    # last written down. A step inserted above them moves the index and not them.
+    dish = await _async_cook_along(
+        hass, _library(entry), saved.recipe_id, saved.batches
+    )
+    here = _here(dish, saved)
+    if here <= 0:
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="at_the_first_step"
         )
-    async_save_cursor(hass, entry, saved.moved_to(saved.cursor - 1))
+    async_save_cursor(hass, entry, saved.moved_to(here - 1, dish.at(here - 1)))
 
 
 async def _async_stop_cook_along(call: ServiceCall) -> None:
@@ -161,6 +169,20 @@ async def _async_stop_cook_along(call: ServiceCall) -> None:
     hass = call.hass
     entry = _loaded_entry(hass)
     async_save_cursor(hass, entry, SavedCursor())
+
+
+def _here(dish: CookAlong, saved: SavedCursor) -> int:
+    """The index the cook is actually on, however the cursor was written.
+
+    ``locate_saved`` answers by step id, which is the position of record;
+    this turns that back into the index the movement actions add to. Where the
+    id names nothing -- the step was deleted out from under a running
+    cook-along -- it falls back to the saved index rather than refusing to
+    move, because the cook is standing in a kitchen and needs to get on. The
+    sensor reports the same situation as *unknown*, which is where they find
+    out that the recipe moved under them."""
+    here = locate_saved(dish, saved)
+    return saved.cursor if here is None else here.cursor
 
 
 # --- resolving the premise of a call ---------------------------------------
