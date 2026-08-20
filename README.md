@@ -30,6 +30,8 @@ python -m recipe_wizard vanilla-cake --components --plan
 python -m recipe_wizard vanilla-cake --batches 2 --cook       # the cook-along, doubled
 python -m recipe_wizard vanilla-cake --batches 2 --shopping   # one line per food
 python -m recipe_wizard --list --validate
+python -m recipe_wizard vanilla-cake --plan --shopping --pdf cake.pdf
+python -m recipe_wizard vanilla-cake --json                    # what the API serves
 python -m pytest
 ```
 
@@ -109,8 +111,9 @@ wrong and missed link.
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `custom_components/recipe_wizard/` | The integration itself: the config flow, the coordinator, the cook-along sensors and actions |
+| `frontend/` | The cook-along surface: Lit, TypeScript, built into the integration's `www/` |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 226 tests, most of them named after a failure mode |
+| `tests/` | The library suite, most of it named after a failure mode |
 | `tests_ha/` | The integration suite. Needs Home Assistant, so it runs on its own |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
@@ -119,7 +122,8 @@ cook now, and what its timer says), `shopping.py` (the roll-up: one line per
 food), `graph.py` (the indexed dataflow graph every one of those asks),
 `adjust.py` (patch operations), `mass.py` (unit reconciliation, and the one
 definition of the batch total), `render.py` (the Modernist table),
-`validate.py`.
+`printing.py` and `pdf.py` (the same table on paper, and a PDF writer with no
+dependencies because the library has none), `validate.py`.
 
 Tests either build the recipe they need with `tests/support.py`, so the premise
 is visible in the test, or run against the real corpus where the corpus *is* the

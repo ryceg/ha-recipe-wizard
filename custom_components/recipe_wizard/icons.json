@@ -1,0 +1,38 @@
+{
+  "entity": {
+    "sensor": {
+      "current_step": {
+        "default": "mdi:chef-hat",
+        "state": {
+          "idle": "mdi:silverware-clean",
+          "finished": "mdi:check-circle-outline"
+        }
+      },
+      "step_timer": {
+        "default": "mdi:timer-sand"
+      }
+    },
+    "todo": {
+      "shopping_list": {
+        "default": "mdi:cart-outline"
+      }
+    }
+  },
+  "services": {
+    "start_cook_along": {
+      "service": "mdi:chef-hat"
+    },
+    "next_step": {
+      "service": "mdi:skip-next"
+    },
+    "previous_step": {
+      "service": "mdi:skip-previous"
+    },
+    "stop_cook_along": {
+      "service": "mdi:stop-circle-outline"
+    },
+    "set_shopping_list": {
+      "service": "mdi:cart-arrow-down"
+    }
+  }
+}

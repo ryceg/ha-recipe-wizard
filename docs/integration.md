@@ -69,6 +69,22 @@ kind.
 You can only add Recipe Wizard once. There is one recipe collection, so a second
 copy would have nothing different to show.
 
+### If you move your recipes later
+
+You do not have to delete Recipe Wizard and add it back. Open its three-dot menu
+in **Settings → Devices & services** and choose **Reconfigure**. You get the same
+one box, filled in with the folder it is using now, and the same check before
+anything is saved: if the new folder does not read, nothing changes and you can
+correct it there and then.
+
+Everything else stays exactly as it is. Your dashboard cards and automations keep
+working, because they point at the entities and the entities do not move. A
+cook-along in progress stays on the step it was on, and your shopping list keeps
+what you had ticked off.
+
+Nothing is copied or moved for you. Move the files yourself first, then tell
+Recipe Wizard where they went.
+
 ## If setup will not go through
 
 | What it says | What to do |
@@ -82,6 +98,73 @@ copy would have nothing different to show.
 If setup succeeded before and the integration later shows as *retrying*, the
 usual cause is the same list above — most often a recipe file that has been
 edited and is no longer valid. The log names the file.
+
+## When one recipe has something wrong with it
+
+A file that will not parse at all stops the whole folder loading, because loading
+six recipes out of seven and saying nothing would leave you hunting for a recipe
+that is on disk. A recipe that parses but does not *hang together* is different:
+the rest of your collection is fine, and Recipe Wizard tells you about that one
+in **Settings → System → Repairs**.
+
+The notice names the recipe and lists each part of it to look at — a step that
+asks for something no ingredient row and no earlier step provides, a sub-recipe
+that is not in your folder. Each line quotes the id to search the file for.
+
+Two things it deliberately does not do:
+
+* **It only reports mistakes, never doubts.** Recipe Wizard also notices things
+  it is merely unsure about — a source that says "a splash of milk" leaves a
+  weight it cannot work out, and that is the honest answer rather than a problem
+  to fix. Those never raise a notice. If they did, you would have notices you
+  could never clear, and you would stop reading the ones that matter.
+* **It does not offer to fix anything.** Your recipe files are your own
+  documents and Recipe Wizard never writes to them. Open the file in a text
+  editor, or run `python -m recipe_wizard --list --validate` to see the same list
+  on a terminal.
+
+The notice disappears on its own once the recipe reads cleanly — within 15
+minutes of you saving it, or straight away if you reload Recipe Wizard.
+
+## If you need to report a problem
+
+Recipe Wizard's page in **Settings → Devices & services** has **Download
+diagnostics** in its three-dot menu, and the file is safe to attach to a public
+issue. **It contains none of your recipes** — no ingredients, no step text, no
+quantities. What it holds is how many recipes you have and how complete they are,
+where the folder is, which recipe a cook-along is on and how far through, and a
+list of what the checker found, given as its short code and the part of the
+recipe it is about.
+
+## The Recipes page
+
+Once Recipe Wizard is set up, **Recipes** appears in the sidebar on the left,
+below your dashboards. It is a full page of its own rather than a card you have
+to find room for on a dashboard, because a recipe is a lot to read on a phone
+propped against a mixing bowl.
+
+The page shows the recipes in your folder. Choose one, say how many batches you
+are making, and you get the whole thing worked out at that size: what to buy,
+what to have ready, the running order, and the steps themselves.
+
+You do not have to use it. Everything on that page is also available as the
+sensors, the shopping list and the actions described below, so a dashboard you
+have built yourself keeps working exactly as it did.
+
+**Nothing on that page leaves your machine.** It is served by your own Home
+Assistant, to your own browser, and only to someone already signed in to Home
+Assistant. If you are not logged in, there is nothing to see.
+
+### If Recipes is not in the sidebar
+
+The page is a small file that ships inside the integration. If it is missing —
+which happens if you installed by copying files by hand and missed a folder, or
+if you are running from a checkout of the source — Recipe Wizard writes a line to
+your log saying which file it could not find, and then carries on without the
+page. **Nothing else is affected:** the sensors, the shopping list and the actions
+all set up as usual. Reinstall through HACS, or copy the whole
+`custom_components/recipe_wizard` folder across rather than part of it, and
+restart Home Assistant.
 
 ## Cooking along
 
@@ -341,8 +424,9 @@ minutes is generous on purpose.
 1. Go to **Settings → Devices & services**.
 2. Find **Recipe Wizard**, open its three-dot menu and choose **Delete**.
 
-That removes the integration's own settings, the shopping list and anything you
-had ticked off or added to it. **Your recipe files are not touched.** They are your own documents, they live outside
+That removes the integration's own settings, the shopping list, anything you had
+ticked off or added to it, the **Recipes** entry in the sidebar, and any repair
+notices it had raised about your recipes. **Your recipe files are not touched.** They are your own documents, they live outside
 the integration folder, and nothing in Recipe Wizard ever deletes or edits them —
 so you can delete the integration and add it back later against the same folder.
 
@@ -397,6 +481,31 @@ that and are worth knowing before changing anything:
 * Every call into the library goes through `hass.async_add_executor_job`. It does
   synchronous file I/O, and the event loop must not wait on a disk.
 
+### The HTTP API is private
+
+`http.py` serves two read-only views behind Home Assistant's own authentication:
+
+```
+GET /api/recipe_wizard/library
+GET /api/recipe_wizard/dish/{recipe_id}?batches=1&include_optional=true
+```
+
+**They are private, they carry no version, and they may change in any release.**
+They exist for the *Recipes* page this repository ships and for nothing else. The
+payload is whatever `core/serialise.py` currently emits — a dish, which is
+derived and disposable, not the format on disk — and its field names are not an
+interface. Do not build anything outside this repository on them. If something
+ever needs to read a dish over HTTP, that is a deliberate act with a versioned
+path and a design pass behind it, not a thing that happened because an endpoint
+was already there.
+
+There is deliberately **no write endpoint and no cursor endpoint**. Moving a
+cook-along goes through the four actions, which already validate and already say
+what the cook got wrong; a second write path would be a second place that
+validation lives. The cursor's position is already on
+`sensor.recipe_wizard_current_step`, which the page reads over the websocket like
+any other card.
+
 There are two test suites, and they cannot share an interpreter — the Home
 Assistant test harness installs autouse fixtures that attach to every test in the
 session, which breaks all 220 library tests:
@@ -421,7 +530,22 @@ looks like a Docker problem rather than a shell one.
 
 `-o asyncio_mode=auto` is required; without it every test errors on the harness's
 autouse async fixtures. Both suites also run in CI on `ubuntu-latest`, along with
-`hassfest` and HACS validation — see `.github/workflows/ci.yml`.
+`hassfest`, HACS validation and the type check — see `.github/workflows/ci.yml`.
+
+The type check needs Home Assistant installed for the same reason the integration
+suite does: nearly every annotation in the integration is one of its types, so
+mypy without it reports fifty missing stubs and proves nothing. It takes no
+arguments — `pyproject.toml` holds the file list, the strictness, and the reason
+behind each place the strictness is narrowed:
+
+```bash
+pip install "mypy==2.3.1"       # into the same environment as homeassistant
+python -m mypy
+```
+
+The integration modules are strict. `core/` is checked but not strictly, and the
+short list of pre-existing findings it is silenced on is in `pyproject.toml` with
+a note against each. That list should only ever get shorter.
 
 `custom_components/recipe_wizard/quality_scale.yaml` records where the integration
 stands against the Home Assistant quality scale, with a reason against every

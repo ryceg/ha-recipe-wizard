@@ -22,7 +22,10 @@ python -m recipe_wizard --list                                   # the library
 python -m recipe_wizard vanilla-cake --components --plan          # Modernist table + schedule
 python -m recipe_wizard vanilla-cake --batches 2 --cook           # the cook-along
 python -m recipe_wizard vanilla-cake --batches 2 --shopping       # one line per food
+python -m recipe_wizard vanilla-cake --plan --shopping --pdf cake.pdf   # the same, on paper
+python -m recipe_wizard --list --plan --pdf cookbook.pdf          # every recipe as one book
 python -m recipe_wizard --list --validate                         # exits non-zero on any error finding
+python -m recipe_wizard vanilla-cake --batches 2 --json           # the dish as the API serves it
 python -m recipe_wizard --import <URL> > recipes/<slug>.json       # faithful level-0 scrape
 python -m recipe_wizard --compare candidate.json --against vanilla-cake   # score an enrichment
 ```
@@ -33,7 +36,7 @@ python -m recipe_wizard --compare candidate.json --against vanilla-cake   # scor
 ### Tests — two suites, two interpreters
 
 ```bash
-python -m pytest -q                                          # library, bare Python (226 tests, ~1s)
+python -m pytest -q                                          # library, bare Python (~1s)
 python -m pytest tests/test_shopping.py -q                   # one file
 python -m pytest tests/test_shopping.py::test_name -q        # one test
 
@@ -50,8 +53,35 @@ The suites **cannot share an interpreter**: the Home Assistant harness's autouse
 fixtures attach to every test in the session and all 226 library tests error. The
 container exists because the harness cannot run on Windows at all
 (`homeassistant.runner` imports `fcntl`). `-o asyncio_mode=auto` is not optional.
-CI runs both suites plus `hassfest` and HACS validation. There is no linter or
-formatter configured.
+### The frontend
+
+```bash
+cd frontend && npm ci                # once
+npm run dev                          # the surface against the fixtures, no Home Assistant
+npm run typecheck && npm test        # 36 tests, ~3s
+npm run build                        # writes custom_components/recipe_wizard/www/
+```
+
+**The built bundle is committed on purpose**, because HACS installs by copying
+`custom_components/recipe_wizard/` and there is no build step at install time —
+the same constraint that vendored the library there. So a source change is only
+half a change until `npm run build` is run and `www/` is committed with it, and
+CI's `frontend` job fails when the two disagree. The build is deterministic and
+byte-identical across Windows and Linux; that is a property to preserve, not a
+coincidence — no content hashing, no sourcemap, output filename a literal.
+
+Regenerate the test fixtures with `--json` rather than by hand, so a test premise
+cannot be a payload the library would never write:
+
+```bash
+python -m recipe_wizard --list --json > frontend/fixtures/library.json
+python -m recipe_wizard vanilla-cake --batches 2 --json \
+    > frontend/fixtures/vanilla-cake.json
+```
+
+CI runs both Python suites, the frontend job, mypy, `hassfest` and HACS
+validation. Node never enters the `library` job — that job exists to prove the
+library is dependency-free. There is no Python linter or formatter configured.
 
 Adding a recipe: see `.claude/skills/enrich-recipe/SKILL.md` (the `/enrich-recipe`
 skill). The loop is import → enrich → `--validate` to zero *errors* (warnings are
@@ -104,8 +134,26 @@ corrupts a parent's override. The module docstring lists all ten steps;
   id rule so a caller can hand it straight back to `RecipeGraph.node`. The validator
   is the contract an enrichment agent iterates against, so **a rule that fires
   spuriously is worse than no rule at all**.
-- `render.py` (the Modernist table, derived from the graph, never authored),
-  `adjust.py`, `units.py`, `duration.py`, `importer.py`, `compare.py`.
+- `render.py` — the Modernist table, derived from the graph, never authored.
+  `table()` returns it as data and `render_table()` formats that; the split
+  exists so `printing.py` draws the same derivation rather than a second one.
+- `serialise.py` — the dish as JSON, for a reader that is not Python. The
+  third renderer, reading the same derivations as the other two. **It is not
+  the format**: `docs/format.md` describes a recipe on disk at no scale, and
+  this is a dish — resolved, scaled, expanded, planned — which is derived and
+  disposable. It is also **private**: field names carry no version and may
+  change in any release, because the only consumer is a surface this repo
+  ships.
+- `printing.py` / `pdf.py` — the table, the plan and the shopping list on
+  paper. `pdf.py` writes the format directly, out of the standard library
+  alone, because the integration ships with an empty `requirements` and one
+  print surface is not worth reversing that for. Its content streams are
+  **left uncompressed on purpose**, which is what lets `tests/test_pdf.py`
+  read the text back off the page; its Helvetica widths are extracted, not
+  recalled, and a test pins them to the published AFM values.
+  The cook-along is deliberately not a section: it is stateless over a
+  cursor, and paper cannot hold one.
+- `adjust.py`, `units.py`, `duration.py`, `importer.py`, `compare.py`.
 
 `core/__init__.py` re-exports the public surface with an explicit `__all__`; keep it
 in step when adding one.
@@ -118,9 +166,20 @@ in step when adding one.
 class, one `SERVICE` device, identity taken from `entry_id`) → `sensor.py`,
 `todo.py`. `cursor.py` holds cook-along state, `actions.py` registers the four
 cook-along actions, and `loader.py` is the load path shared by the config flow and
-the coordinator.
+the coordinator. `http.py` serves the library and one dish as JSON and registers
+the `/recipe-wizard` panel; `issues.py` raises a repair for a document the
+validator errors on, and `diagnostics.py` reports counts and findings and never
+recipe content.
 
-Four invariants:
+The frontend is **one cursor, served by Home Assistant** (ADR 0004): the panel and
+the Lovelace card are the same Lit component, reads go over the private HTTP API,
+writes go through the four existing actions, and the sensor's attributes are the
+invalidation signal rather than the wire format. There is no write endpoint and no
+cursor endpoint, and `after_dependencies` rather than `dependencies` carries
+`frontend`/`panel_custom` because the API and the sensors work on a Home Assistant
+with no frontend installed — which is also what the test container is.
+
+Five invariants:
 
 1. **No `homeassistant` import at module scope in `__init__.py`** (ADR 0002).
    Importing `core` runs that module first, so a top-level HA import would make the
@@ -134,10 +193,15 @@ Four invariants:
    `Library.load()` reads files. Never resolve anything in an entity property;
    `native_value` is called on every state write, which is why `cursor.py` caches the
    resolved dish once per (recipe, batches, library).
-3. **The cursor lives in the config entry's options**, written through
+3. **A cursor is `(recipe, step)`, never an index** (ADR 0003). The walk is the
+   dish's steps then each component's, so a step added to a *sub-recipe* renumbers
+   the parent and an index silently moves the cook. `CookAlong.locate` is the
+   lookup; both the entities and the movement actions go through
+   `cursor.locate_saved` so they cannot disagree about where the cook is.
+4. **The cursor lives in the config entry's options**, written through
    `async_update_entry` (which is also what notifies the sensors), so a restart
    during the brownies' three-hour chill comes back to the chill.
-4. **A sensor state is a position (`12/16`), not step text** — Home Assistant caps a
+5. **A sensor state is a position (`12/16`), not step text** — Home Assistant caps a
    state at 255 characters and silently drops longer writes.
 
 `quality_scale.yaml` records where the integration stands against the Home Assistant

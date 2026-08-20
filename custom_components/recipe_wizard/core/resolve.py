@@ -270,7 +270,7 @@ def materialise(
 
 def batch_yield_grams(
     recipe: Recipe, masses: MassTable
-) -> tuple[float | None, list[str]]:
+) -> tuple[float | None, list["Finding"]]:
     """Step 4. Returns the yield and whatever deciding it had to say.
 
     ``sumOfInputs`` is exact for anything uncooked and close enough elsewhere

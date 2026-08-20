@@ -44,7 +44,16 @@ from .model import (
     Storage,
     Vessel,
 )
-from .render import blocks, ingredients_for_step, render_table, uses_of
+from .printing import dish_pdf, library_pdf
+from .render import (
+    Row,
+    TableBlock,
+    blocks,
+    ingredients_for_step,
+    render_table,
+    table,
+    uses_of,
+)
 from .resolve import (
     BatchConstraintError,
     Resolution,
@@ -56,6 +65,7 @@ from .resolve import (
     resolve_component,
     vessel_findings,
 )
+from .serialise import dish_json, library_json
 from .schedule import Plan, check_plan, rigid_chains, schedule
 from .shopping import (
     CitedComponent,
@@ -106,11 +116,13 @@ __all__ = [
     "RecipeGraph",
     "Resolution",
     "ResolvedIngredient",
+    "Row",
     "ShoppingLine",
     "ShoppingList",
     "Step",
     "StepIngredient",
     "Storage",
+    "TableBlock",
     "UnitError",
     "UnresolvableComponent",
     "Use",
@@ -121,11 +133,15 @@ __all__ = [
     "compare",
     "cook_along",
     "cook_along_from_dish",
+    "dish_json",
+    "dish_pdf",
     "effective_recipe",
     "import_page",
     "import_url",
     "ingredient_mass",
     "ingredients_for_step",
+    "library_json",
+    "library_pdf",
     "mass_table",
     "materialise",
     "recipe_graph",
@@ -138,6 +154,7 @@ __all__ = [
     "shopping_list",
     "shopping_list_from_dish",
     "step_ingredients",
+    "table",
     "uses_of",
     "validate_library",
     "validate_recipe",

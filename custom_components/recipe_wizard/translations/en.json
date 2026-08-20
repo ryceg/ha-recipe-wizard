@@ -10,7 +10,20 @@
         "data_description": {
           "recipes_dir": "The folder holding your recipe files. Each recipe is one file ending in .json, and folders inside this one are searched too. If you type a name rather than a full path, it is taken as a folder next to your configuration.yaml."
         }
+      },
+      "reconfigure": {
+        "title": "Change your recipe folder",
+        "description": "If you have moved your recipes, tell Recipe Wizard where they are now. It will check that it can read them before changing anything. Nothing is copied or moved for you, and your recipe files are not touched.",
+        "data": {
+          "recipes_dir": "Recipe folder"
+        },
+        "data_description": {
+          "recipes_dir": "The folder holding your recipe files. If you type a name rather than a full path, it is taken as a folder next to your configuration.yaml. Everything else stays as it is: your dashboard cards keep working, a cook-along in progress carries on, and your shopping list keeps its ticks."
+        }
       }
+    },
+    "abort": {
+      "reconfigure_successful": "Recipe Wizard is now reading your recipes from the new folder."
     },
     "error": {
       "directory_not_found": "There is no folder at {detail}. Check the spelling, or create the folder and put your recipe files in it.",
@@ -88,6 +101,12 @@
       "message": "Recipe Wizard could not work out the steps for {recipe_id}: {detail}"
     }
   },
+  "issues": {
+    "invalid_recipe": {
+      "title": "Recipe Wizard cannot fully read \"{name}\"",
+      "description": "There are problems in the recipe file for **{name}** (`{recipe}`) that stop Recipe Wizard cooking along with it or shopping for it properly.\n\n{findings}\n\nEach line names the part of the recipe to fix. Recipe files are your own documents and Recipe Wizard never edits them, so open the file in a text editor, or run `python -m recipe_wizard --list --validate` to see the same list on a terminal.\n\nThis notice disappears on its own once the recipe reads cleanly — within 15 minutes of you saving it, or straight away if you reload Recipe Wizard."
+    }
+  },
   "services": {
     "set_shopping_list": {
       "name": "Set shopping list",
@@ -113,7 +132,7 @@
       "fields": {
         "recipe_id": {
           "name": "Recipe",
-          "description": "Which recipe to cook. Part of its name is enough â€” \"brownies\" â€” as long as it matches only one recipe. If two recipes match, you are told which."
+          "description": "Which recipe to cook. Part of its name is enough — \"brownies\" — as long as it matches only one recipe. If two recipes match, you are told which."
         },
         "batches": {
           "name": "Batches",

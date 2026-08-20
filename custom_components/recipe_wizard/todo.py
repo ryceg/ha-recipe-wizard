@@ -102,7 +102,11 @@ ATTR_RECIPE = "recipe"
 ATTR_BATCHES = "batches"
 ATTR_INCLUDE_OPTIONAL = "include_optional"
 
-SET_SHOPPING_LIST_SCHEMA = {
+#: Annotated rather than inferred: a bare dict literal of voluptuous markers
+#: infers as ``dict[Marker, object]``, which is not what
+#: ``async_register_entity_service`` takes -- the key type has to admit a plain
+#: string as well, even though nothing here uses one.
+SET_SHOPPING_LIST_SCHEMA: dict[str | vol.Marker, Any] = {
     vol.Required(ATTR_RECIPE): cv.string,
     # Half a batch is a real thing to shop for; zero and negatives are not, and
     # the library would raise on them further in than a user could follow.

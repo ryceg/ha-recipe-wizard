@@ -1,0 +1,60 @@
+{
+  "recipes": [
+    {
+      "id": "urn:recipe:rte/chocolate-buttercream",
+      "name": "Chocolate Buttercream Frosting",
+      "url": "https://www.recipetineats.com/chocolate-buttercream-frosting/",
+      "family": "family:buttercream",
+      "enrichment_level": 3
+    },
+    {
+      "id": "urn:recipe:local/coffee-buttercream",
+      "name": "Coffee Buttercream",
+      "variant_of": "urn:recipe:rte/vanilla-buttercream",
+      "family": "family:buttercream",
+      "enrichment_level": 0
+    },
+    {
+      "id": "urn:recipe:rte/mint-yogurt",
+      "name": "Mint Yogurt",
+      "url": "https://www.recipetineats.com/qeema-indian-curried-beef/",
+      "enrichment_level": 3
+    },
+    {
+      "id": "urn:recipe:rte/vanilla-cake",
+      "name": "My Very Best Vanilla Cake",
+      "url": "https://www.recipetineats.com/my-very-best-vanilla-cake/",
+      "enrichment_level": 3
+    },
+    {
+      "id": "urn:recipe:rte/peanut-butter-stuffed-brownies",
+      "name": "Peanut Butter Stuffed Brownies",
+      "url": "https://www.recipetineats.com/peanut-butter-stuffed-brownies/",
+      "enrichment_level": 3
+    },
+    {
+      "id": "urn:recipe:rte/qeema",
+      "name": "Qeema (Indian Curried Beef)",
+      "url": "https://www.recipetineats.com/qeema-indian-curried-beef/",
+      "enrichment_level": 3
+    },
+    {
+      "id": "urn:recipe:rte/vanilla-buttercream",
+      "name": "Vanilla Buttercream",
+      "url": "https://www.recipetineats.com/vanilla-buttercream/",
+      "family": "family:buttercream",
+      "enrichment_level": 3
+    }
+  ],
+  "families": [
+    {
+      "id": "family:buttercream",
+      "name": "Buttercream",
+      "members": [
+        "urn:recipe:rte/vanilla-buttercream",
+        "urn:recipe:rte/chocolate-buttercream",
+        "urn:recipe:local/coffee-buttercream"
+      ]
+    }
+  ]
+}

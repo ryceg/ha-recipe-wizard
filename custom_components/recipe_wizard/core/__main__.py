@@ -9,6 +9,8 @@ import sys
 from .cookalong import cook_along_from_dish
 from .dish import Dish, resolve_dish
 from .library import Library
+from .printing import dish_pdf, library_pdf
+from .serialise import dish_json, library_json
 from .render import render_table
 from .resolve import UnresolvableComponent
 from .schedule import schedule
@@ -58,6 +60,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="scale to N batches; components follow")
     parser.add_argument("--import", dest="import_from", metavar="URL|FILE",
                         help="import a page's schema.org data as a level-0 document")
+    parser.add_argument("--json", action="store_true", dest="as_json",
+                        help="the dish as the API serves it, on stdout")
+    parser.add_argument("--pdf", metavar="FILE",
+                        help="write the selected surfaces to a PDF; with --list, every recipe as one book")
     parser.add_argument("--compare", metavar="FILE",
                         help="score an enriched document against a hand-authored one")
     parser.add_argument("--against", metavar="RECIPE",
@@ -73,11 +79,31 @@ def main(argv: list[str] | None = None) -> int:
         return _compare(library, args.compare, args.against)
 
     if args.list or not args.recipe:
+        if args.as_json:
+            # Before the listing, not after it: this stream has to be
+            # parseable on its own, and a table above the JSON is not.
+            print(json.dumps(library_json(library), indent=2))
+            return 0
         for recipe in sorted(library, key=lambda r: r.name):
             variant = f"  (variant of {recipe.is_variant_of})" if recipe.is_variant_of else ""
             print(f"{recipe.name:38} {recipe.id}{variant}")
         for family in library.families.values():
             print(f"{family.name:38} {family.id}  [family of {len(family.members)}]")
+        if args.pdf:
+            # Sorted the way the listing above is, so the book and the
+            # list a reader just saw are in the same order.
+            dishes = [
+                resolve_dish(library, r.id, batches=args.batches,
+                             strict=False)
+                for r in sorted(library, key=lambda r: r.name)
+            ]
+            _write_pdf(args.pdf, library_pdf(
+                dishes,
+                components=args.components,
+                plan=args.plan,
+                shopping=args.shopping,
+                include_optional=not args.without_optional,
+            ))
         if args.validate:
             return _report(validate_library(library))
         return 0
@@ -89,6 +115,36 @@ def main(argv: list[str] | None = None) -> int:
     dish = resolve_dish(library, recipe.id, batches=args.batches, strict=False)
     resolution = dish.resolution
     effective = resolution.recipe
+
+    if args.as_json:
+        # Ahead of the human report and returning, like --pdf: the flags
+        # name what you asked for, and a table interleaved with JSON on one
+        # stream is neither readable nor parseable.
+        print(json.dumps(
+            dish_json(dish, include_optional=not args.without_optional),
+            indent=2,
+        ))
+        return 0
+
+    if args.pdf:
+        # A PDF instead of the report, not as well as it: the flags name
+        # the surfaces, and printing them twice down two channels is how a
+        # redirect to a file ends up with the table in it.
+        if args.cook:
+            # Named and dropped, never dropped quietly. The cook-along is
+            # stateless over a cursor -- something else holds which step you
+            # are on -- and a sheet of paper cannot hold one, so there is
+            # nothing to print. Its steps are the procedure column anyway.
+            print("--cook is not a printable surface; see the procedure "
+                  "column. Printing the rest.")
+        _write_pdf(args.pdf, dish_pdf(
+            dish,
+            components=args.components,
+            plan=args.plan,
+            shopping=args.shopping,
+            include_optional=not args.without_optional,
+        ))
+        return _report(validate_recipe(recipe, library)) if args.validate else 0
 
     print(f"\n{effective.name.upper()}")
     if effective.url:
@@ -131,9 +187,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.plan:
         plan = schedule(resolution)
-        print(f"\nPLAN  total {plan.total_s / 60:.0f} min | "
-              f"hands-on {plan.active_s / 60:.0f} min | "
-              f"hands-off {plan.unattended_s / 60:.0f} min")
+        header = (f"\nPLAN  total {plan.total_s / 60:.0f} min | "
+                  f"hands-on {plan.active_s / 60:.0f} min | "
+                  f"hands-off {plan.unattended_s / 60:.0f} min")
+        # Printed only where there is some, like the state-decided line
+        # below: the three figures partition the timeline, so on a recipe
+        # with no enforced wait "waiting 0 min" says nothing the other
+        # two did not.
+        if plan.waiting_s:
+            header += f" | waiting {plan.waiting_s / 60:.0f} min"
+        print(header)
         # "total 7 hr" reads as a promise, and for the brownies most of it is a
         # bake and two chills that end when the food says so. Printed only where
         # there is some, because a "0 min" here would be noise on the recipes
@@ -172,6 +235,17 @@ def main(argv: list[str] | None = None) -> int:
         return _report(validate_recipe(recipe, library))
 
     return 0
+
+
+def _write_pdf(path: str, data: bytes) -> None:
+    """Write the file and say where it went.
+
+    On stdout, not stderr, and not silently: ``--pdf`` is the one mode that
+    produces nothing a terminal can show, so a run with no output at all is
+    indistinguishable from a run that did nothing."""
+    with open(path, "wb") as handle:
+        handle.write(data)
+    print(f"wrote {path} ({len(data) / 1024:.0f} kB)")
 
 
 def _cook(dish: Dish) -> None:

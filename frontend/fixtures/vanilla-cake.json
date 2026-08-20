@@ -1,0 +1,1460 @@
+{
+  "id": "urn:recipe:rte/vanilla-cake",
+  "name": "My Very Best Vanilla Cake",
+  "label": "My Very Best Vanilla Cake",
+  "url": "https://www.recipetineats.com/my-very-best-vanilla-cake/",
+  "batches": 2.0,
+  "yield_g": 1068.7042000000001,
+  "yield_basis": "sumOfInputs",
+  "produced_g": 2124.23980372486,
+  "storage": [
+    {
+      "method": "room-temperature",
+      "keeps": "7 days",
+      "keeps_s": 604800.0,
+      "quality_window": "4 days",
+      "quality_note": "stays properly moist for 4 days; still good on day 7 but drier",
+      "condition": "unless the climate is very hot"
+    },
+    {
+      "method": "frozen",
+      "keeps": "3 months",
+      "keeps_s": 7889238.0
+    }
+  ],
+  "unsuitable_for": [],
+  "notes": [
+    "Read the recipe fully before beginning.",
+    "Verify baking powder is fresh and active.",
+    "Follow the steps in order; do not prepare components ahead.",
+    "Do not leave batter sitting once mixing begins; air bubbles subside quickly, resulting in a dense cake.",
+    "Ensure milk and butter are hot when incorporated.",
+    "Keep the mixing bowl at room temperature, not cold.",
+    "Do not add inclusions like sprinkles or blueberries; they sink."
+  ],
+  "table": [
+    {
+      "rows": [],
+      "steps": [
+        {
+          "step_id": "#preheat",
+          "position": 1,
+          "text": "Preheat oven to 180C/350F (160C fan). Position shelf in middle of oven."
+        },
+        {
+          "step_id": "#prep-pans",
+          "position": 2,
+          "text": "Grease 2 x 20cm (8\") cake pans with butter and line with parchment/baking paper."
+        }
+      ]
+    },
+    {
+      "rows": [
+        {
+          "label": "plain flour",
+          "weight": "500 g",
+          "scaling": "100.0%"
+        },
+        {
+          "label": "baking powder",
+          "weight": "16 g",
+          "scaling": "3.2%"
+        },
+        {
+          "label": "kosher salt",
+          "weight": "1.5 g",
+          "scaling": "0.3%"
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "#whisk-dry",
+          "position": 3,
+          "text": "Whisk flour, baking powder, and salt in a large bowl. Set aside."
+        }
+      ],
+      "result": "Dry mix"
+    },
+    {
+      "rows": [
+        {
+          "label": "large eggs",
+          "weight": "420 g",
+          "scaling": "84.0%"
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "#beat-eggs",
+          "position": 4,
+          "text": "Beat eggs for 30 seconds on speed 6 of a stand mixer with whisk attachment."
+        }
+      ],
+      "result": "Beaten eggs"
+    },
+    {
+      "rows": [
+        {
+          "label": "caster sugar",
+          "weight": "600 g",
+          "scaling": "120.0%"
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "#add-sugar",
+          "position": 5,
+          "text": "With beater running, pour sugar in over 45 seconds."
+        },
+        {
+          "step_id": "#beat-to-ribbon",
+          "position": 6,
+          "text": "Beat for 7 minutes on speed 8 until tripled in volume and white/pale."
+        }
+      ],
+      "result": "Aerated egg foam"
+    },
+    {
+      "rows": [
+        {
+          "label": "unsalted butter",
+          "weight": "230 g",
+          "scaling": "46.0%"
+        },
+        {
+          "label": "full-fat milk",
+          "weight": "495 g",
+          "scaling": "99.1%"
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "#melt-butter-milk",
+          "position": 7,
+          "text": "While eggs are beating, place butter and milk in a heatproof jug. Microwave on high for 2 minutes to melt butter (or use stovetop)."
+        },
+        {
+          "step_id": "#fold-flour",
+          "position": 8,
+          "text": "Add flour in 3 batches to egg mixture, beating for 5 seconds on speed 1 between each addition. After final addition, beat for 5-10 seconds until no flour is visible, then stop immediately."
+        }
+      ],
+      "result": "Base batter"
+    },
+    {
+      "rows": [
+        {
+          "label": "vanilla extract",
+          "weight": "19 g",
+          "scaling": "3.7%"
+        },
+        {
+          "label": "vegetable oil",
+          "weight": "28 g",
+          "scaling": "5.5%"
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "#combine-liquids",
+          "position": 9,
+          "text": "Pour hot milk, vanilla extract, and oil into the now-empty flour bowl."
+        },
+        {
+          "step_id": "#temper-batter",
+          "position": 10,
+          "text": "Add approximately 1 1/2 cups (2 ladles) of cake batter to the hot milk. Whisk vigorously until smooth and foamy."
+        },
+        {
+          "step_id": "#add-hot-milk",
+          "position": 11,
+          "text": "Turn beater to speed 1. Slowly pour the hot milk mixture into the cake batter over 15 seconds, then turn beater off."
+        },
+        {
+          "step_id": "#final-mix",
+          "position": 12,
+          "text": "Scrape down bowl sides and base. Beat on speed 1 for 10 seconds until batter is smooth and pourable."
+        },
+        {
+          "step_id": "#pour-pans",
+          "position": 13,
+          "text": "Pour batter evenly into prepared pans (approximately 560g/20 oz per pan)."
+        },
+        {
+          "step_id": "#bang-pans",
+          "position": 14,
+          "text": "Bang each pan on counter 3 times to knock out large air bubbles."
+        },
+        {
+          "step_id": "#bake",
+          "position": 15,
+          "text": "Bake for 30 minutes until golden brown and a toothpick inserted into the centre comes out clean."
+        },
+        {
+          "step_id": "#cool-in-pan",
+          "position": 16,
+          "text": "Remove from oven. Cool in pans for 15 minutes."
+        },
+        {
+          "step_id": "#cool-out",
+          "position": 17,
+          "text": "Gently turn out onto cooling racks. For level layers, cool upside down; the slight dome flattens as the cake cools."
+        }
+      ],
+      "result": "Cooled cake layers"
+    },
+    {
+      "rows": [
+        {
+          "label": "Vanilla buttercream (sub-recipe)",
+          "weight": "-",
+          "scaling": "-",
+          "component": true
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "#assemble",
+          "position": 18,
+          "text": "Once cake layers are fully cool, frost between the layers and on the top and sides with the vanilla buttercream."
+        }
+      ],
+      "result": "Frosted vanilla cake"
+    }
+  ],
+  "steps": [
+    {
+      "cursor": 0,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#preheat",
+      "position": 1,
+      "text": "Preheat oven to 180C/350F (160C fan). Position shelf in middle of oven.",
+      "attention": "unattended",
+      "start_s": 0.0,
+      "end_s": 1200.0,
+      "timer_s": 1200.0,
+      "timer": "20 min",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [],
+      "produces": []
+    },
+    {
+      "cursor": 1,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#beat-eggs",
+      "position": 4,
+      "text": "Beat eggs for 30 seconds on speed 6 of a stand mixer with whisk attachment.",
+      "attention": "active",
+      "start_s": 1200.0,
+      "end_s": 1230.0,
+      "timer_s": 30.0,
+      "timer": "30 sec",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#eggs",
+          "name": "large eggs",
+          "text": "420 g large eggs",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 420.0,
+          "optional": false,
+          "to_taste": false,
+          "required_state": {
+            "description": "at room temperature",
+            "lead_time_s": 1800.0,
+            "procedure": "Fridge-cold eggs can be warmed in warm tap water for 5 minutes."
+          }
+        }
+      ],
+      "produces": [
+        {
+          "id": "#beaten-eggs",
+          "name": "Beaten eggs"
+        }
+      ]
+    },
+    {
+      "cursor": 2,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#add-sugar",
+      "position": 5,
+      "text": "With beater running, pour sugar in over 45 seconds.",
+      "attention": "active",
+      "start_s": 1230.0,
+      "end_s": 1275.0,
+      "timer_s": 45.0,
+      "timer": "45 sec",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#beaten-eggs",
+          "name": "Beaten eggs",
+          "text": "Beaten eggs",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#caster-sugar",
+          "name": "caster sugar",
+          "text": "600 g caster sugar",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 600.0,
+          "optional": false,
+          "to_taste": false,
+          "display": "1 1/2 cups"
+        }
+      ],
+      "produces": [
+        {
+          "id": "#egg-sugar",
+          "name": "Egg and sugar mixture"
+        }
+      ]
+    },
+    {
+      "cursor": 3,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#beat-to-ribbon",
+      "position": 6,
+      "text": "Beat for 7 minutes on speed 8 until tripled in volume and white/pale.",
+      "attention": "passive",
+      "start_s": 1275.0,
+      "end_s": 1695.0,
+      "timer_s": 420.0,
+      "timer": "7 min, then check: tripled in volume and white/pale",
+      "doneness": "tripled in volume and white/pale",
+      "finishes_on": "state",
+      "time_is_estimate": true,
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#egg-sugar",
+          "name": "Egg and sugar mixture",
+          "text": "Egg and sugar mixture",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#aerated-eggs",
+          "name": "Aerated egg foam"
+        }
+      ]
+    },
+    {
+      "cursor": 4,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#melt-butter-milk",
+      "position": 7,
+      "text": "While eggs are beating, place butter and milk in a heatproof jug. Microwave on high for 2 minutes to melt butter (or use stovetop).",
+      "attention": "active",
+      "start_s": 1575.0,
+      "end_s": 1695.0,
+      "timer_s": 120.0,
+      "timer": "2 min",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#butter",
+          "name": "unsalted butter",
+          "text": "230 g unsalted butter",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 230.0,
+          "optional": false,
+          "to_taste": false,
+          "note": "Same food as the frosting's butter, different required state \u2014 melted here, softened there. They merge on a shopping list and must not merge in mise en place."
+        },
+        {
+          "id": "#milk",
+          "name": "full-fat milk",
+          "text": "495 g full-fat milk",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 495.36,
+          "optional": false,
+          "to_taste": false,
+          "display": "1 cup / 240 ml",
+          "note": "The source gives 240 ml for '1 cup', which is the US cup, while its dry cups match the 250 ml Australian cup. Recorded in millilitres so the system setting cannot re-interpret it."
+        }
+      ],
+      "produces": [
+        {
+          "id": "#hot-milk",
+          "name": "Hot buttered milk"
+        }
+      ]
+    },
+    {
+      "cursor": 5,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#whisk-dry",
+      "position": 3,
+      "text": "Whisk flour, baking powder, and salt in a large bowl. Set aside.",
+      "attention": "active",
+      "start_s": 1635.0,
+      "end_s": 1695.0,
+      "finishes_on": "cook",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#flour",
+          "name": "plain flour",
+          "text": "500 g plain flour",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 500.0,
+          "optional": false,
+          "to_taste": false,
+          "display": "2 cups"
+        },
+        {
+          "id": "#baking-powder",
+          "name": "baking powder",
+          "text": "16 g baking powder",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 15.90990257669732,
+          "optional": false,
+          "to_taste": false,
+          "display": "2 1/2 tsp",
+          "note": "Leavening does not scale linearly with batter mass; pan depth matters more than total volume."
+        },
+        {
+          "id": "#salt",
+          "name": "kosher salt",
+          "text": "1.5 g kosher salt",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 1.5,
+          "optional": false,
+          "to_taste": false,
+          "display": "1/4 tsp",
+          "note": "Volume measures of salt are not portable between brands \u2014 Diamond Crystal is about half the mass per spoon of Morton."
+        }
+      ],
+      "produces": [
+        {
+          "id": "#dry-mix",
+          "name": "Dry mix"
+        }
+      ]
+    },
+    {
+      "cursor": 6,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#fold-flour",
+      "position": 8,
+      "text": "Add flour in 3 batches to egg mixture, beating for 5 seconds on speed 1 between each addition. After final addition, beat for 5-10 seconds until no flour is visible, then stop immediately.",
+      "attention": "active",
+      "start_s": 1695.0,
+      "end_s": 1755.0,
+      "timer": "go by: no flour is visible",
+      "doneness": "no flour is visible",
+      "finishes_on": "state",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#aerated-eggs",
+          "name": "Aerated egg foam",
+          "text": "Aerated egg foam",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#dry-mix",
+          "name": "Dry mix",
+          "text": "Dry mix",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#base-batter",
+          "name": "Base batter"
+        }
+      ]
+    },
+    {
+      "cursor": 7,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#combine-liquids",
+      "position": 9,
+      "text": "Pour hot milk, vanilla extract, and oil into the now-empty flour bowl.",
+      "attention": "active",
+      "start_s": 1695.0,
+      "end_s": 1755.0,
+      "finishes_on": "cook",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#hot-milk",
+          "name": "Hot buttered milk",
+          "text": "Hot buttered milk",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#vanilla",
+          "name": "vanilla extract",
+          "text": "19 g vanilla extract",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 18.64640581988926,
+          "optional": false,
+          "to_taste": false,
+          "display": "3 tsp"
+        },
+        {
+          "id": "#oil",
+          "name": "vegetable oil",
+          "text": "28 g vegetable oil",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 27.540000000000003,
+          "optional": false,
+          "to_taste": false,
+          "display": "3 tsp",
+          "note": "The source explicitly says do not increase this quantity."
+        }
+      ],
+      "produces": [
+        {
+          "id": "#liquid-mix",
+          "name": "Liquid mixture"
+        }
+      ]
+    },
+    {
+      "cursor": 8,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#temper-batter",
+      "position": 10,
+      "text": "Add approximately 1 1/2 cups (2 ladles) of cake batter to the hot milk. Whisk vigorously until smooth and foamy.",
+      "attention": "active",
+      "start_s": 1755.0,
+      "end_s": 1815.0,
+      "timer": "go by: smooth and foamy",
+      "doneness": "smooth and foamy",
+      "finishes_on": "state",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#liquid-mix",
+          "name": "Liquid mixture",
+          "text": "Liquid mixture",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#base-batter",
+          "name": "Base batter",
+          "text": "Base batter: 3 cup",
+          "portion": {
+            "text": "3 cup",
+            "whole": false,
+            "approximate": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#tempered-liquid",
+          "name": "Tempered liquid"
+        }
+      ]
+    },
+    {
+      "cursor": 9,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#prep-pans",
+      "position": 2,
+      "text": "Grease 2 x 20cm (8\") cake pans with butter and line with parchment/baking paper.",
+      "attention": "active",
+      "start_s": 1780.0,
+      "end_s": 1840.0,
+      "finishes_on": "cook",
+      "may_pause_after": false,
+      "needs": [],
+      "produces": [
+        {
+          "id": "#lined-pans",
+          "name": "Lined pans"
+        }
+      ]
+    },
+    {
+      "cursor": 10,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#add-hot-milk",
+      "position": 11,
+      "text": "Turn beater to speed 1. Slowly pour the hot milk mixture into the cake batter over 15 seconds, then turn beater off.",
+      "attention": "active",
+      "start_s": 1815.0,
+      "end_s": 1830.0,
+      "timer_s": 15.0,
+      "timer": "15 sec",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#tempered-liquid",
+          "name": "Tempered liquid",
+          "text": "Tempered liquid",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#base-batter",
+          "name": "Base batter",
+          "text": "Base batter: the rest",
+          "portion": {
+            "text": "the rest",
+            "whole": false
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#combined-batter",
+          "name": "Combined batter"
+        }
+      ]
+    },
+    {
+      "cursor": 11,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#final-mix",
+      "position": 12,
+      "text": "Scrape down bowl sides and base. Beat on speed 1 for 10 seconds until batter is smooth and pourable.",
+      "attention": "active",
+      "start_s": 1830.0,
+      "end_s": 1840.0,
+      "timer_s": 10.0,
+      "timer": "10 sec, then check: the batter is smooth and pourable",
+      "doneness": "the batter is smooth and pourable",
+      "finishes_on": "state",
+      "time_is_estimate": true,
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#combined-batter",
+          "name": "Combined batter",
+          "text": "Combined batter",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#finished-batter",
+          "name": "Finished batter"
+        }
+      ]
+    },
+    {
+      "cursor": 12,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#pour-pans",
+      "position": 13,
+      "text": "Pour batter evenly into prepared pans (approximately 560g/20 oz per pan).",
+      "attention": "active",
+      "start_s": 1840.0,
+      "end_s": 1900.0,
+      "finishes_on": "cook",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#finished-batter",
+          "name": "Finished batter",
+          "text": "Finished batter",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#lined-pans",
+          "name": "Lined pans",
+          "text": "Lined pans",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#filled-pans",
+          "name": "Filled pans"
+        }
+      ]
+    },
+    {
+      "cursor": 13,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#bang-pans",
+      "position": 14,
+      "text": "Bang each pan on counter 3 times to knock out large air bubbles.",
+      "attention": "active",
+      "start_s": 1900.0,
+      "end_s": 1960.0,
+      "finishes_on": "cook",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#filled-pans",
+          "name": "Filled pans",
+          "text": "Filled pans",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#settled-pans",
+          "name": "Settled pans"
+        }
+      ]
+    },
+    {
+      "cursor": 14,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#bake",
+      "position": 15,
+      "text": "Bake for 30 minutes until golden brown and a toothpick inserted into the centre comes out clean.",
+      "attention": "unattended",
+      "start_s": 1960.0,
+      "end_s": 3760.0,
+      "timer_s": 1800.0,
+      "timer": "30 min, then check: golden brown, and a toothpick in the centre comes out clean",
+      "doneness": "golden brown, and a toothpick in the centre comes out clean",
+      "finishes_on": "state",
+      "time_is_estimate": true,
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#settled-pans",
+          "name": "Settled pans",
+          "text": "Settled pans",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#baked-layers",
+          "name": "Baked layers"
+        }
+      ]
+    },
+    {
+      "cursor": 15,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#cool-in-pan",
+      "position": 16,
+      "text": "Remove from oven. Cool in pans for 15 minutes.",
+      "attention": "unattended",
+      "start_s": 3760.0,
+      "end_s": 4660.0,
+      "timer_s": 900.0,
+      "timer": "15 min",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#baked-layers",
+          "name": "Baked layers",
+          "text": "Baked layers",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#part-cooled-layers",
+          "name": "Part-cooled layers"
+        }
+      ]
+    },
+    {
+      "cursor": 16,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#cool-out",
+      "position": 17,
+      "text": "Gently turn out onto cooling racks. For level layers, cool upside down; the slight dome flattens as the cake cools.",
+      "attention": "unattended",
+      "start_s": 4660.0,
+      "end_s": 11860.0,
+      "timer_s": 7200.0,
+      "timer": "2 hr",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#part-cooled-layers",
+          "name": "Part-cooled layers",
+          "text": "Part-cooled layers",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#cooled-layers",
+          "name": "Cooled cake layers"
+        }
+      ]
+    },
+    {
+      "cursor": 17,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-cake",
+      "label": "My Very Best Vanilla Cake",
+      "step_id": "#assemble",
+      "position": 18,
+      "text": "Once cake layers are fully cool, frost between the layers and on the top and sides with the vanilla buttercream.",
+      "attention": "active",
+      "start_s": 11860.0,
+      "end_s": 11920.0,
+      "finishes_on": "cook",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#cooled-layers",
+          "name": "Cooled cake layers",
+          "text": "Cooled cake layers",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#frosting",
+          "name": "Vanilla buttercream",
+          "text": "1469 g Vanilla buttercream",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 1468.6464058198892,
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#finished-cake",
+          "name": "Frosted vanilla cake"
+        }
+      ]
+    },
+    {
+      "cursor": 18,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-buttercream",
+      "label": "Vanilla buttercream",
+      "step_id": "#cream-butter",
+      "position": 1,
+      "text": "Cream butter using paddle attachment on high for 3 minutes until it changes from yellow to almost white and becomes fluffy and creamy.",
+      "attention": "passive",
+      "start_s": 0.0,
+      "end_s": 180.0,
+      "timer_s": 180.0,
+      "timer": "3 min",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#butter",
+          "name": "unsalted butter",
+          "text": "450 g unsalted butter",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 450.0,
+          "optional": false,
+          "to_taste": false,
+          "note": "This page states 225 g where the standalone recipe states 250 g, both called '2 sticks' (which is really 226.8 g). That moves the butter:sugar ratio from 1:2.0 to 1:2.22, which is a real difference in stiffness, not rounding noise. Recorded as a local override rather than resolved.",
+          "required_state": {
+            "description": "softened to room temperature",
+            "lead_time_s": 3600.0,
+            "procedure": "Leave out of the fridge until it yields to gentle pressure."
+          }
+        }
+      ],
+      "produces": [
+        {
+          "id": "#creamed-butter",
+          "name": "Creamed butter"
+        }
+      ]
+    },
+    {
+      "cursor": 19,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-buttercream",
+      "label": "Vanilla buttercream",
+      "step_id": "#add-sugar",
+      "position": 2,
+      "text": "Add icing sugar gradually in 3 lots, beating slowly to avoid powder clouds. Once mostly incorporated, beat on high for 3 minutes until fluffy.",
+      "attention": "active",
+      "start_s": 180.0,
+      "end_s": 360.0,
+      "timer_s": 180.0,
+      "timer": "3 min",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#creamed-butter",
+          "name": "Creamed butter",
+          "text": "Creamed butter",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#icing-sugar",
+          "name": "soft icing sugar",
+          "text": "1000 g soft icing sugar",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 1000.0,
+          "optional": false,
+          "to_taste": false
+        }
+      ],
+      "produces": [
+        {
+          "id": "#buttercream-base",
+          "name": "Buttercream base"
+        }
+      ]
+    },
+    {
+      "cursor": 20,
+      "of": 21,
+      "recipe_id": "urn:recipe:rte/vanilla-buttercream",
+      "label": "Vanilla buttercream",
+      "step_id": "#finish",
+      "position": 3,
+      "text": "Add vanilla and milk, then beat 30 seconds more. Use milk only if needed to achieve a soft consistency that still holds its form. Use immediately on cooled cakes and cupcakes.",
+      "attention": "active",
+      "start_s": 360.0,
+      "end_s": 390.0,
+      "timer_s": 30.0,
+      "timer": "30 sec",
+      "finishes_on": "clock",
+      "may_pause_after": false,
+      "needs": [
+        {
+          "id": "#buttercream-base",
+          "name": "Buttercream base",
+          "text": "Buttercream base",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "optional": false,
+          "to_taste": false
+        },
+        {
+          "id": "#vanilla",
+          "name": "vanilla extract",
+          "text": "19 g vanilla extract",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 18.64640581988926,
+          "optional": false,
+          "to_taste": false,
+          "display": "3 tsp"
+        },
+        {
+          "id": "#milk",
+          "name": "milk",
+          "text": "124 g milk (optional)",
+          "portion": {
+            "text": "all",
+            "whole": true
+          },
+          "row_mass_g": 123.84,
+          "optional": true,
+          "to_taste": false,
+          "display": "2-4 tbsp, if needed",
+          "note": "A consistency adjuster, not a structural ingredient \u2014 excluded from the yield for that reason. Contrast the chocolate recipe, where milk is a required 1/4 cup."
+        }
+      ],
+      "produces": [
+        {
+          "id": "#buttercream",
+          "name": "Vanilla buttercream"
+        }
+      ]
+    }
+  ],
+  "plan": {
+    "total_s": 11920.0,
+    "active_s": 520.0,
+    "unattended_s": 11400.0,
+    "waiting_s": 0.0,
+    "state_decided_s": 2230.0,
+    "steps": [
+      {
+        "step_id": "#preheat",
+        "start_s": 0.0,
+        "end_s": 1200.0,
+        "attention": "unattended"
+      },
+      {
+        "step_id": "#beat-eggs",
+        "start_s": 1200.0,
+        "end_s": 1230.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#add-sugar",
+        "start_s": 1230.0,
+        "end_s": 1275.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#beat-to-ribbon",
+        "start_s": 1275.0,
+        "end_s": 1695.0,
+        "attention": "passive",
+        "doneness": "tripled in volume and white/pale"
+      },
+      {
+        "step_id": "#melt-butter-milk",
+        "start_s": 1575.0,
+        "end_s": 1695.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#whisk-dry",
+        "start_s": 1635.0,
+        "end_s": 1695.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#fold-flour",
+        "start_s": 1695.0,
+        "end_s": 1755.0,
+        "attention": "active",
+        "doneness": "no flour is visible"
+      },
+      {
+        "step_id": "#combine-liquids",
+        "start_s": 1695.0,
+        "end_s": 1755.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#temper-batter",
+        "start_s": 1755.0,
+        "end_s": 1815.0,
+        "attention": "active",
+        "doneness": "smooth and foamy"
+      },
+      {
+        "step_id": "#prep-pans",
+        "start_s": 1780.0,
+        "end_s": 1840.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#add-hot-milk",
+        "start_s": 1815.0,
+        "end_s": 1830.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#final-mix",
+        "start_s": 1830.0,
+        "end_s": 1840.0,
+        "attention": "active",
+        "doneness": "the batter is smooth and pourable"
+      },
+      {
+        "step_id": "#pour-pans",
+        "start_s": 1840.0,
+        "end_s": 1900.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#bang-pans",
+        "start_s": 1900.0,
+        "end_s": 1960.0,
+        "attention": "active"
+      },
+      {
+        "step_id": "#bake",
+        "start_s": 1960.0,
+        "end_s": 3760.0,
+        "attention": "unattended",
+        "doneness": "golden brown, and a toothpick in the centre comes out clean"
+      },
+      {
+        "step_id": "#cool-in-pan",
+        "start_s": 3760.0,
+        "end_s": 4660.0,
+        "attention": "unattended"
+      },
+      {
+        "step_id": "#cool-out",
+        "start_s": 4660.0,
+        "end_s": 11860.0,
+        "attention": "unattended"
+      },
+      {
+        "step_id": "#assemble",
+        "start_s": 11860.0,
+        "end_s": 11920.0,
+        "attention": "active"
+      }
+    ],
+    "rigid_chains": [
+      [
+        "#final-mix",
+        "#pour-pans"
+      ],
+      [
+        "#bang-pans",
+        "#bake"
+      ]
+    ],
+    "findings": []
+  },
+  "shopping": {
+    "label": "My Very Best Vanilla Cake",
+    "scale": 2.0,
+    "lines": [
+      {
+        "food_id": "food:flour-plain",
+        "name": "plain flour",
+        "text": "plain flour: 500 g",
+        "total_g": 500.0,
+        "measured_g": 500.0,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "500 g - My Very Best Vanilla Cake"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake"
+        ]
+      },
+      {
+        "food_id": "food:baking-powder",
+        "name": "baking powder",
+        "text": "baking powder: 16 g",
+        "total_g": 15.90990257669732,
+        "measured_g": 15.90990257669732,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "medium",
+        "breakdown": [
+          "16 g - My Very Best Vanilla Cake"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake"
+        ]
+      },
+      {
+        "food_id": "food:salt-kosher",
+        "name": "kosher salt",
+        "text": "kosher salt: 1.5 g",
+        "total_g": 1.5,
+        "measured_g": 1.5,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "low",
+        "breakdown": [
+          "1.5 g - My Very Best Vanilla Cake"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake"
+        ]
+      },
+      {
+        "food_id": "food:egg-whole-large",
+        "name": "large eggs",
+        "text": "large eggs: 420 g",
+        "total_g": 420.0,
+        "measured_g": 420.0,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "420 g - My Very Best Vanilla Cake"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake"
+        ]
+      },
+      {
+        "food_id": "food:sugar-caster",
+        "name": "caster sugar",
+        "text": "caster sugar: 600 g",
+        "total_g": 600.0,
+        "measured_g": 600.0,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "600 g - My Very Best Vanilla Cake"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake"
+        ]
+      },
+      {
+        "food_id": "food:butter-unsalted",
+        "name": "unsalted butter",
+        "text": "unsalted butter: 680 g",
+        "total_g": 680.0,
+        "measured_g": 680.0,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "230 g, cut into cubes - My Very Best Vanilla Cake",
+          "450 g - Vanilla buttercream"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake",
+          "Vanilla buttercream"
+        ]
+      },
+      {
+        "food_id": "food:milk-full-fat",
+        "name": "full-fat milk",
+        "text": "full-fat milk: 619 g",
+        "total_g": 619.2,
+        "measured_g": 619.2,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "495 g - My Very Best Vanilla Cake",
+          "124 g, optional - Vanilla buttercream"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake",
+          "Vanilla buttercream"
+        ]
+      },
+      {
+        "food_id": "food:vanilla-extract",
+        "name": "vanilla extract",
+        "text": "vanilla extract: 37 g",
+        "total_g": 37.29281163977852,
+        "measured_g": 37.29281163977852,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "19 g - My Very Best Vanilla Cake",
+          "19 g - Vanilla buttercream"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake",
+          "Vanilla buttercream"
+        ]
+      },
+      {
+        "food_id": "food:oil-vegetable",
+        "name": "vegetable oil",
+        "text": "vegetable oil: 28 g",
+        "total_g": 27.540000000000003,
+        "measured_g": 27.540000000000003,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "28 g - My Very Best Vanilla Cake"
+        ],
+        "from_recipes": [
+          "My Very Best Vanilla Cake"
+        ]
+      },
+      {
+        "food_id": "food:icing-sugar-soft",
+        "name": "soft icing sugar",
+        "text": "soft icing sugar: 1000 g",
+        "total_g": 1000.0,
+        "measured_g": 1000.0,
+        "optional": false,
+        "to_taste": false,
+        "confidence": "high",
+        "breakdown": [
+          "1000 g, sifted - Vanilla buttercream"
+        ],
+        "from_recipes": [
+          "Vanilla buttercream"
+        ]
+      }
+    ],
+    "to_find": []
+  },
+  "components": [
+    {
+      "label": "Vanilla buttercream",
+      "recipe_id": "urn:recipe:rte/vanilla-buttercream",
+      "batches": 2.0,
+      "summary": "Vanilla buttercream: x2, makes 1469 g, needs 1476 g",
+      "produced_g": 1468.6464058198892,
+      "requested_g": 1476.37,
+      "optional": false,
+      "change_log": [
+        "local adjustments:",
+        "  set unsalted butter to 225 g"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "level": "warning",
+      "code": "resolve-vessel-capacity",
+      "recipe": "urn:recipe:rte/vanilla-cake",
+      "message": "scaled to x2 this makes 2124 g, but 2 x 20 cm (8\") round cake pan holds about 1120 g - you need roughly 4 of them",
+      "where": "My Very Best Vanilla Cake"
+    },
+    {
+      "level": "warning",
+      "code": "resolve-vessel-timing",
+      "recipe": "urn:recipe:rte/vanilla-cake",
+      "node": "#bake",
+      "message": "do not scale the time on step 15; it comes from the vessel, not the quantity. Options given: 3 x 20cm round: 22 min, 2 x 23cm round: 27 min, 2 x 15.25cm round: 26 min, 12-cup bundt: 1 hr, 23 x 33cm rectangular: 30 min, 24 cupcakes",
+      "where": "My Very Best Vanilla Cake"
+    }
+  ]
+}
