@@ -144,7 +144,12 @@ met, two constraints that cannot both hold — comes back as a finding under a
 `schedule-*` code, from `--plan` and `--validate` alike. See § Validation.
 
 Hands-on and hands-off totals are computed by sweeping the timeline, not summing
-durations, which double-counts overlapping branches.
+durations, which double-counts overlapping branches. A third total, **waiting**,
+covers the stretches where no step is running at all: a `minDelayAfter` is a
+constraint rather than a step, so the brownies' three-hour chill belongs to none
+of the attention classes, and it is 195 of that recipe's 420 minutes. The three
+partition the timeline exactly, because they are printed beside a total and that
+is what printing them there claims.
 
 ### The cook-along
 
@@ -165,6 +170,22 @@ steps with absolute portions scaled) are the pair that fixes it, and `schedule()
 cannot hand them a document and a scale that disagree. That was not theoretical:
 the table read its weights off the resolution and its portions off the document,
 so a doubled tray printed 500 g of peanut butter beside "dollop 2 tbsp".
+
+**What ends a step is a question with three answers**, and `finishes_on` is the
+one place they are decided: a **state**, where the document gives a doneness and
+any stated time is an estimate of it; the **clock**, where a time is given and no
+state, because then the time *is* the instruction — "beat the eggs for 30 seconds
+on speed 6" is not estimating anything; or the **cook**, where the document states
+neither and the step is over when they have done it. The planner's assumed minute
+for that last case is scaffolding so the graph has a length, and is not a one-minute
+clock.
+
+Every surface used to decide this for itself, and they disagreed: `timer_label()`
+asked whether a doneness was set, the cook-along sensor asked again and then called
+*every* timestamp it produced an estimate — including the flat hour the brownies
+cool on the counter — and the planner did not ask at all. A surface that hedges its
+certain numbers has nothing left to mark its uncertain ones with, which is the
+whole use of saying so.
 
 **Components are grouped, not interleaved.** Every scheduling property above
 names step ids inside one document, so a dish is presented as each recipe's own
@@ -384,8 +405,8 @@ does sanction a choice, it is already a variant or a sibling.
 ## Validation
 
 `python -m recipe_wizard --list --validate`. Currently nine findings, no errors,
-all genuine — a unit divergence, an ambiguous "divided" salt the source never
-accounts for, a storage conflict, and six requests for masses where a volume
+all genuine — two unit divergences, an ambiguous "divided" salt the source never
+accounts for, a storage conflict, and five requests for masses where a volume
 measure is unreliable.
 
 **A finding is one record, and it names a node.** The consumer is an enrichment
@@ -418,6 +439,35 @@ what it can, and `schedule-max-delay`, `schedule-min-delay`,
 graph rules, because a scrape declares no constraints to contradict. It adds
 nothing to today's corpus: still nine findings.
 
+**Resolver defects are findings too, under `resolve-*` codes.** A tin that will
+not hold a doubled cake, a batch below a recipe's stated minimum, a fractional
+batch rounded to whole eggs, a document with no stated yield: `Resolution` used to
+carry these as `warnings: list[str]`, the last part of the report that was not a
+`Finding`. Which meant they could not be counted, could not reach a validation
+report except flattened to one `component-warning`, and could only be told apart
+by their wording — `sensor.py`, `dish.py` and four tests all keyed on a substring
+of an English sentence. `resolve-vessel-capacity`, `resolve-vessel-timing`,
+`resolve-batch-rounded`, `resolve-batch-policy-unusable`, `resolve-does-not-scale`,
+`resolve-batch-constraint` and `resolve-yield-fallback` name them now, and
+`mass.py` owns `unit-divergence` and `unresolved-mass` rather than the validator
+deciding which it had by looking for the word *"disagree"* in a message another
+module wrote.
+
+These are **warnings, never errors**, and that is the one way a resolver finding
+differs from the validator's: nothing is wrong with the cake, and doubling it is
+still more batter than its tins hold. A resolver finding is about a document *at a
+scale*, and the resolution carrying it is a real one a cook can work from.
+
+**The tin answers the node question by not having one.** `rw:vessel` is declared
+on the document; it is not an ingredient, a step or a component, so there is no id
+to hand back to `RecipeGraph.node` and a step invented for it would send a fixer at
+a step that is not wrong. `resolve-vessel-capacity` therefore names no node, while
+`resolve-vessel-timing` — *"do not scale the time on step 15"* — names the step
+whose `rw:vesselOptions` say so, and `resolve-batch-rounded` names the basis
+ingredient it counted. Naming a node where there is one and nothing where there is
+not is the whole rule, and it is why these were worth converting rather than
+flattening into a single shrug about the batch.
+
 **The exit status is the roll-up.** `worst_level` returns the most serious level
 present, and `--validate` exits non-zero when that is an error, so the enrichment
 loop can ask whether it is finished instead of parsing the printed count out of
@@ -440,14 +490,18 @@ until the ginger it seasons falls under the threshold and goes unreported.
 
 ## Known gaps
 
-* **Doneness reaches the timer, and still drives nothing.** It is carried onto
-  `ScheduledStep` and rendered by `CookStep.timer_label()`, so a timer now reads
-  *"32 min, then check: edges firmish, centre still jiggling"* — and *"go by:
-  the mint is very finely chopped"* where the source gives a state and no time.
-  Shown against every step of `--plan` that has one, and in `--cook`. What is
-  still missing is any *behaviour*: nothing holds a timer open waiting for the
-  cook to confirm the state, nothing asks, and the schedule is still built from
-  the clock alone. It is displayed, not enforced.
+* **Doneness decides who is in charge of a step, and still not when it ends.**
+  `CookStep.finishes_on` answers `state`, `clock` or `cook` — see § The cook-along
+  — so the surfaces no longer each work it out privately, `--plan` says how much
+  of its total a state decides rather than presenting the whole of it as a
+  promise, and the cook-along sensor asks for a check when a state-finished step's
+  estimate elapses. What is still missing is the *timeline*: the planner has only
+  the clock to build one from, so a state-finished step is still laid out at its
+  stated length, and a bake that runs twenty minutes long does not push everything
+  after it. Doing that needs the plan to be re-derived from where the cook actually
+  is, which is a live schedule rather than a computed one — and it needs the cook
+  to have confirmed the state, which is a thing only the integration knows. The
+  `awaiting_check` flag is where that would start.
 * **One timeline across component recipes.** Each recipe is planned on its own
   and the cook-along groups them; nothing slots the frosting into the gap while
   the cake cools. Doing it needs three things the corpus does not state:
@@ -457,14 +511,6 @@ until the ginger it seasons falls under the threshold and goes unreported.
   who cannot be in two `active` steps at once, and a reading of `rw:makeAhead`
   as a scheduling constraint rather than a note. Until those exist, interleaving
   would be invention dressed as a plan.
-* **`Resolution.warnings` is still a list of bare strings.** The vessel-capacity
-  message and the batch-policy renormalisations are the last part of the report
-  that is not a `Finding`, and they are stuck there for a reason that is not the
-  validator's: `dish.all_warnings()` hands them out as `(label, text)` pairs and
-  its callers do substring tests on `text`, so converting them is a signature
-  change across `dish.py`, `cookalong.py` and their tests rather than a rule
-  change. Doing it would also have to answer what a resolver finding's *node* is
-  when the subject is a tin that is too small.
 * **Conditional steps.** *"If the liquid evaporates excessively, add water."*
 * **Package-relative quantities.** *"¾ cup coconut milk (~½ can)"* — the other
   half-can is a real pantry problem.

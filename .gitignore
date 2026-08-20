@@ -10,3 +10,11 @@ venv/
 # Agent worktrees live inside the repo, which is convenient and must never be
 # committed. Registered in .git/worktrees, so `git worktree list` still finds them.
 .claude/worktrees/
+
+# The frontend toolchain is dev-time only and never ships. What *does* ship is
+# custom_components/recipe_wizard/www/, which is built from frontend/ and is
+# committed on purpose: HACS copies the integration directory and there is no
+# build step at install time. CI rebuilds it and fails on any difference.
+node_modules/
+frontend/dist/
+*.tsbuildinfo

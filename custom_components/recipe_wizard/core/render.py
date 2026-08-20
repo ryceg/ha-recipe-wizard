@@ -147,6 +147,78 @@ def format_mass(grams: float | None) -> str:
     return f"{grams:.0f} g"
 
 
+@dataclass(slots=True)
+class Row:
+    """One left-column line: what it is, what it weighs, what share of the basis."""
+
+    label: str
+    weight: str
+    scaling: str
+    is_component: bool = False
+
+
+@dataclass(slots=True)
+class TableBlock:
+    """A block with its left column already derived. What the table *means*,
+    before anything decides whether it is going to be characters or points."""
+
+    rows: list[Row] = field(default_factory=list)
+    steps: list[Step] = field(default_factory=list)
+    result: str | None = None
+
+
+def table(source: Recipe | Resolution) -> list[TableBlock]:
+    """The table as data, for a renderer to lay out however it draws.
+
+    Split out of ``render_table`` when the PDF surface arrived. The rules that
+    decide a row -- a component prints its label and no weight, an ingredient
+    used twice says so, scaling is against ``scaling_basis`` and is absent when
+    there is no basis to divide by -- are the table's own, and a second renderer
+    reimplementing them is how two surfaces come to disagree about what the
+    recipe says. ``render_table`` formats this; ``printing.py`` draws it.
+    """
+    graph = recipe_graph(source)
+    recipe = graph.recipe
+    resolution = None if isinstance(source, Recipe) else source
+    masses = {i.id: i for i in resolution.ingredients} if resolution else {}
+
+    basis_mass = None
+    if recipe.scaling_basis and recipe.scaling_basis in masses:
+        basis_mass = masses[recipe.scaling_basis].mass_g
+
+    out: list[TableBlock] = []
+    for block in blocks(graph):
+        rows: list[Row] = []
+        for ingredient_id in block.ingredient_ids:
+            resolved = masses.get(ingredient_id)
+            component = graph.component(ingredient_id)
+            is_component = component is not None
+            if component is not None:
+                label, weight, scaling = f"{component.label} (sub-recipe)", "-", "-"
+            elif resolved is not None:
+                label = resolved.name + (" (optional)" if resolved.optional else "")
+                weight = (
+                    "to taste" if resolved.to_taste else format_mass(resolved.mass_g)
+                )
+                scaling = "-"
+                if basis_mass and resolved.mass_g is not None:
+                    scaling = f"{resolved.mass_g / basis_mass:.1%}"
+            else:
+                ing = graph.ingredient(ingredient_id)
+                label = ing.name if ing else ingredient_id
+                weight = str(ing.mass) if ing and ing.mass else "-"
+                scaling = "-"
+
+            # Flag anything used more than once, so the table does not imply
+            # the whole amount goes in at its first appearance.
+            uses = graph.consumers(ingredient_id)
+            if len(uses) > 1:
+                label += f" (in {len(uses)} parts)"
+            rows.append(Row(label, weight, scaling, is_component))
+        out.append(TableBlock(rows=rows, steps=block.steps, result=block.result))
+    return out
+
+
 def render_table(
     source: Recipe | Resolution,
     *,
@@ -164,20 +236,6 @@ def render_table(
     scale by construction.
     """
     width = width or min(shutil.get_terminal_size((100, 24)).columns, 110)
-    resolution = None if isinstance(source, Recipe) else source
-    # One graph for the whole table. Every lookup below used to be a scan:
-    # ``uses_of`` inside the per-ingredient loop made this O(ingredients x steps),
-    # which is a shape that only shows up once a recipe is large.
-    graph = recipe_graph(source)
-    recipe = graph.recipe
-    masses = {}
-    if resolution:
-        masses = {i.id: i for i in resolution.ingredients}
-
-    basis_mass = None
-    if recipe.scaling_basis and recipe.scaling_basis in masses:
-        basis_mass = masses[recipe.scaling_basis].mass_g
-
     name_w, weight_w, scale_w = 26, 9, 8
     proc_w = max(30, width - name_w - weight_w - scale_w - 6)
 
@@ -189,36 +247,13 @@ def render_table(
     lines.append(header)
     lines.append("=" * min(width, len(header) + proc_w - len("PROCEDURE")))
 
-    for block in blocks(graph):
+    for block in table(source):
         left: list[str] = []
-        for ingredient_id in block.ingredient_ids:
-            resolved = masses.get(ingredient_id)
-            component = graph.component(ingredient_id)
-            if component is not None:
-                label = f"{component.label} (sub-recipe)"
-                weight = "-"
-                scaling = "-"
-            elif resolved is not None:
-                label = resolved.name + (" (optional)" if resolved.optional else "")
-                weight = "to taste" if resolved.to_taste else format_mass(resolved.mass_g)
-                scaling = "-"
-                if basis_mass and resolved.mass_g is not None:
-                    scaling = f"{resolved.mass_g / basis_mass:.1%}"
-            else:
-                ing = graph.ingredient(ingredient_id)
-                label = ing.name if ing else ingredient_id
-                weight = str(ing.mass) if ing and ing.mass else "-"
-                scaling = "-"
-
-            # Flag anything used more than once, so the table does not imply
-            # the whole amount goes in at its first appearance.
-            uses = graph.consumers(ingredient_id)
-            if len(uses) > 1:
-                label += f" (in {len(uses)} parts)"
-            for row, chunk in enumerate(wrap(label, name_w) or [""]):
+        for entry in block.rows:
+            for row, chunk in enumerate(wrap(entry.label, name_w) or [""]):
                 if row == 0:
-                    left.append(f"{chunk:<{name_w}} {weight:>{weight_w}} "
-                                f"{scaling:>{scale_w}}")
+                    left.append(f"{chunk:<{name_w}} {entry.weight:>{weight_w}} "
+                                f"{entry.scaling:>{scale_w}}")
                 else:
                     left.append(f"{chunk:<{name_w}} {'':>{weight_w}} {'':>{scale_w}}")
 

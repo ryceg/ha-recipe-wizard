@@ -11,12 +11,16 @@ from conftest import BROWNIES, CAKE, COFFEE_BC, VANILLA_BC
 from support import build_library, build_recipe, component, ingredient, portion, step
 
 from custom_components.recipe_wizard.core.cookalong import (
+    FINISHES_ON_CLOCK,
+    FINISHES_ON_COOK,
+    FINISHES_ON_STATE,
     cook_along,
     cook_along_from_dish,
     step_ingredients,
 )
 from custom_components.recipe_wizard.core.dish import resolve_dish
 from custom_components.recipe_wizard.core.resolve import resolve
+from custom_components.recipe_wizard.core.schedule import schedule
 
 #: The one recipe in the corpus with an *optional* whole component.
 QEEMA = "urn:recipe:rte/qeema"
@@ -377,3 +381,233 @@ def test_a_dish_already_resolved_is_not_resolved_again(library):
     cook = cook_along_from_dish(dish)
     assert cook.resolution is dish.resolution
     assert cook.components[0].resolution is dish.components[0].resolution
+
+
+# ---------------------------------------------------------------------------
+# What decides a step is over
+# ---------------------------------------------------------------------------
+
+
+def _one_step(**kwargs):
+    """A one-step recipe, cooked along, so the premise is the step itself."""
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[step("#do-it", consumes=["#flour"],
+                    produces=("#thing", "Thing"), **kwargs)],
+    )
+    dish = cook_along(build_library(recipe), recipe.id)
+    return dish.steps[0]
+
+
+def test_a_state_decides_a_step_even_when_a_time_is_given():
+    """The brownies bake for 32 minutes *until* the edges are firmish.
+
+    The whole format doc turns on the state being authoritative and the time
+    being an estimate of it, and until this property existed every surface
+    decided that privately -- so the timer sensor called all three kinds of
+    number an estimate and the planner called none of them one.
+    """
+    cooked = _one_step(duration="PT32M", doneness="edges firmish, centre jiggling")
+
+    assert cooked.finishes_on == FINISHES_ON_STATE
+    assert cooked.time_is_estimate, "32 min is an estimate of the state"
+
+
+def test_a_stated_time_with_no_state_is_the_instruction_and_not_an_estimate():
+    """"Beat the eggs for 30 seconds on speed 6" is not estimating anything.
+
+    Hedging it is not harmless: a surface that marks its certain numbers
+    uncertain has nothing left to mark its uncertain ones with.
+    """
+    cooked = _one_step(duration="PT30S")
+
+    assert cooked.finishes_on == FINISHES_ON_CLOCK
+    assert not cooked.time_is_estimate
+
+
+def test_a_step_with_neither_is_finished_by_the_cook_doing_it():
+    """Whisking the dry ingredients waits for nothing.
+
+    The planner assumes a minute so the graph has a length, which is scaffolding
+    and not a claim -- so this is not a one-minute clock step.
+    """
+    cooked = _one_step()
+
+    assert cooked.finishes_on == FINISHES_ON_COOK
+    assert not cooked.time_is_estimate
+    assert cooked.timer is None
+
+
+def test_when_the_clock_starts_is_a_different_question_from_what_ends_it():
+    """A timer that starts on an event still ends on the clock.
+
+    ``rw:timerStartsWhen`` is why the timer sensor shows no timestamp -- nothing
+    knows when the water came back to the boil -- and folding it into this
+    property would make a step nobody can time look like a step nothing times.
+    """
+    cooked = _one_step(duration="PT3M", timer_starts_when="the water returns to the boil")
+
+    assert cooked.finishes_on == FINISHES_ON_CLOCK
+    assert cooked.timer_starts_when is not None
+
+
+def test_the_plan_says_how_much_of_its_total_a_state_decides(brownies):
+    """"Total 7 hr" reads as a promise, and most of the brownies is not one."""
+    plan = schedule(brownies)
+
+    assert plan.state_decided_s > 0, "the freeze and the bake both end on a state"
+    assert plan.state_decided_s < plan.total_s
+    stated = sum(entry.duration_s for entry in plan.steps
+                 if entry.doneness is not None)
+    assert plan.state_decided_s == pytest.approx(stated)
+
+
+def test_a_plan_whose_every_step_the_clock_decides_reports_none():
+    """A recipe with no states in it has nothing soft to report.
+
+    Built rather than borrowed, and it was borrowed once: this asserted that the
+    *cake* reports none, which was true of the corpus on the day it was written
+    and stopped being true the moment the cake's "until golden brown and a
+    toothpick comes out clean" was lifted into a ``rw:doneness``. The premise is
+    "a recipe whose every step the clock decides", so the recipe saying that is
+    the one the test should build -- ``tests/support.py``'s whole argument.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces=("#batter", "Batter"),
+                 duration="PT5M"),
+            step("#rest", consumes=["#batter"], produces=("#rested", "Rested"),
+                 duration="PT1H"),
+        ],
+    )
+
+    plan = schedule(resolve(build_library(recipe), recipe.id))
+
+    assert plan.state_decided_s == 0
+
+
+def test_a_state_with_no_stated_time_is_a_step_to_check_not_soft_time():
+    """The cake whisks "until smooth and foamy" and gives no time for it.
+
+    The planner lays that out at its assumed minute so the graph has a length,
+    and counting the minute here reported scaffolding as time a state decides --
+    which is the assumed minute being treated as data, the one thing every other
+    part of this module refuses to do. Caught by reading ``--plan`` after
+    enriching the cake, not by a test.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#whisk", consumes=["#flour"], produces=("#smooth", "Smooth"),
+                 doneness="smooth and foamy"),
+            step("#bake", consumes=["#smooth"], produces=("#loaf", "Loaf"),
+                 duration="PT30M", doneness="a skewer comes out clean"),
+        ],
+    )
+
+    plan = schedule(resolve(build_library(recipe), recipe.id))
+
+    assert plan.state_decided_s == pytest.approx(30 * 60), (
+        "the bake's stated half hour, and nothing for the whisk"
+    )
+    assert plan.step("#whisk").duration_s > 0, (
+        "the premise: the whisk does occupy the timeline, it just states no time"
+    )
+    assert plan.step("#whisk").stated_s is None
+
+
+# ---------------------------------------------------------------------------
+# Addressing a position: by id, because an index is #step-3
+# ---------------------------------------------------------------------------
+
+
+def test_a_step_is_found_by_its_id_and_the_recipe_it_belongs_to(library):
+    cook = cook_along(library, CAKE)
+    found = cook.locate(CAKE, "#bake")
+    assert found is not None
+    assert found.step.step_id == "#bake"
+    assert cook.at(found.cursor).step.step_id == "#bake"
+
+
+def test_a_step_id_is_matched_bare_or_fully_qualified(library):
+    """``graph.py``'s rule: a reference means the same thing written either way,
+    and a saved cursor may hold either."""
+    cook = cook_along(library, CAKE)
+    bare = cook.locate(CAKE, "#bake")
+    qualified = cook.locate(CAKE, f"{CAKE}#bake")
+    assert bare is not None and qualified is not None
+    assert bare.cursor == qualified.cursor
+
+
+def test_the_recipe_is_needed_because_a_step_id_is_not_unique_in_a_dish(library):
+    """The cake and its buttercream both have an ``#add-sugar``. Addressing one
+    by id alone would find whichever came first in the walk."""
+    cook = cook_along(library, CAKE)
+    owners = {
+        entry.recipe_id
+        for entry in cook.sequence()
+        if entry.step.step_id == "#add-sugar"
+    }
+    assert len(owners) == 2, "premise: two recipes in this dish use #add-sugar"
+    for owner in owners:
+        found = cook.locate(owner, "#add-sugar")
+        assert found is not None and found.recipe_id == owner
+
+
+def test_a_step_that_is_no_longer_in_the_dish_is_not_found(library):
+    assert cook_along(library, CAKE).locate(CAKE, "#no-such-step") is None
+
+
+def test_a_step_added_to_a_component_does_not_move_the_step_the_cook_is_on():
+    """The whole reason a saved position is a pair and not an index.
+
+    The walk is the parent's steps then the component's, so inserting a step
+    *into the component* -- a different file, one nobody was editing -- renumbers
+    every position from there on. The id does not move, which is what a saved
+    cursor has to be addressed by.
+    """
+    def library_with(extra_frosting_steps):
+        frosting = build_recipe(
+            id="urn:recipe:test/frosting",
+            name="Buttercream",
+            ingredients=[ingredient("butter", mass=250)],
+            steps=[
+                *extra_frosting_steps,
+                step("#cream-butter", consumes=["#butter"],
+                     produces=("#creamed", "Creamed butter")),
+            ],
+        )
+        parent = build_recipe(
+            id="urn:recipe:test/frosted",
+            name="Frosted cake",
+            ingredients=[ingredient("flour", mass=250)],
+            components=[component("Buttercream", id="#frosting",
+                                  recipe=frosting.id)],
+            steps=[
+                step("#bake", consumes=["#flour"],
+                     produces=("#layers", "Baked layers")),
+                step("#frost", consumes=["#layers", "#frosting"],
+                     produces=("#cake", "Frosted cake")),
+            ],
+        )
+        return build_library(parent, frosting), parent.id
+
+    library, parent_id = library_with([])
+    before = cook_along(library, parent_id)
+    creaming = before.locate("urn:recipe:test/frosting", "#cream-butter")
+    assert creaming is not None
+
+    # The same dish with one step added ahead of the creaming, inside the
+    # component: the butter now has to be softened before it can be creamed.
+    grown_library, parent_id = library_with([
+        step("#soften", consumes=["#butter"], produces=("#soft", "Softened butter")),
+    ])
+    after = cook_along(grown_library, parent_id)
+    assert after.total_steps() == before.total_steps() + 1, "premise: it grew"
+    moved = after.locate("urn:recipe:test/frosting", "#cream-butter")
+    assert moved is not None
+    assert moved.cursor == creaming.cursor + 1, "the index moved"
+    assert after.at(creaming.cursor).step.step_id != "#cream-butter", (
+        "and the old index now names a different step"
+    )

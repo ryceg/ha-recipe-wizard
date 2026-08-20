@@ -35,6 +35,7 @@ from tests_ha.support import write_recipe
 
 STEP = "sensor.recipe_wizard_current_step"
 BROWNIES = "urn:recipe:rte/peanut-butter-stuffed-brownies"
+CAKE = "urn:recipe:rte/vanilla-cake"
 
 
 #: The integration directory, read directly so a drift test cannot be
@@ -338,11 +339,71 @@ async def test_the_saved_cursor_is_written_to_the_entry_not_held_in_memory(
 ):
     """What makes the test above work, asserted directly: the cursor is in the
     entry's options, which Home Assistant persists itself. Anything else would
-    need a store of its own and a migration to go with it."""
+    need a store of its own and a migration to go with it.
+
+    The whole dict, so that a field added to the saved shape has to be considered
+    here -- ``step_recipe_id`` and ``step_id`` are the position of record and the
+    index beside them is what "2/16" is made of.
+    """
     await call(hass, SERVICE_NEXT_STEP)
     assert cooking.options["cook_along"] == {
         "recipe_id": BROWNIES,
         "batches": 2.0,
         "cursor": 1,
         "started_at": saved_cursor(cooking).started_at.isoformat(),
+        "step_recipe_id": BROWNIES,
+        "step_id": "#spread-pb",
     }
+
+
+async def test_next_moves_from_where_the_cook_is_not_from_the_saved_index(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, recipes_dir: Path
+):
+    """The half of the fix the sensor cannot show.
+
+    The cook is on the buttercream's creaming step. A step is added *above* it,
+    inside the buttercream's own file, so the index the cursor last wrote down
+    now names the step before. Adding one to that index would move the cook back
+    to where they already were; the action has to find them by id first.
+    """
+    await call(hass, SERVICE_START_COOK_ALONG, recipe_id=CAKE)
+    for _ in range(18):
+        await call(hass, SERVICE_NEXT_STEP)
+    assert saved_cursor(loaded_entry).step_id == "#cream-butter"
+    stale_index = saved_cursor(loaded_entry).cursor
+
+    path = recipes_dir / "vanilla-buttercream.json"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["recipeInstructions"].insert(0, {
+        "@type": "HowToStep",
+        "@id": "#warm-the-bowl",
+        "position": 0,
+        "text": "Warm the mixer bowl so the butter does not seize.",
+        "rw:consumes": [{"@id": "#butter"}],
+        "rw:produces": [{"@id": "#warmed", "name": "Butter in a warm bowl"}],
+        "rw:attention": "active",
+    })
+    for existing in document["recipeInstructions"][1:]:
+        if existing["@id"] == "#cream-butter":
+            existing["rw:consumes"] = [{"@id": "#warmed"}]
+    path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+    await loaded_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    await call(hass, SERVICE_NEXT_STEP)
+    saved = saved_cursor(loaded_entry)
+    assert saved.step_id == "#add-sugar", "one past the creaming, not one past the index"
+    assert saved.cursor == stale_index + 2, "which is two on from the stale index"
+
+
+async def test_back_one_is_one_back_from_where_the_cook_is(
+    hass: HomeAssistant, cooking: MockConfigEntry
+):
+    """``previous`` did not resolve the dish at all before the position became a
+    pair, because subtracting one from an integer needs nothing. It does now."""
+    await call(hass, SERVICE_NEXT_STEP)
+    assert saved_cursor(cooking).step_id == "#spread-pb"
+    await call(hass, SERVICE_PREVIOUS_STEP)
+    saved = saved_cursor(cooking)
+    assert saved.cursor == 0
+    assert saved.step_id == "#line-pan"

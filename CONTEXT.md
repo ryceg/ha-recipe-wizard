@@ -120,6 +120,19 @@ this batch size, and what its timer should say. Stateless over a cursor — the
 caller holds which step it is on.
 _Avoid_: session, wizard, walkthrough, mode.
 
+**Cursor**:
+Where the cook is in a cook-along, addressed by the recipe and the step — never
+by how many steps are in front of it. The step ordering is the dish's whole walk,
+so a step added to a *sub-recipe* renumbers the parent from that point on.
+_Avoid_: index, position (that is what a step's number on the screen is), pointer.
+
+**Surface**:
+A place a cook reads a dish or drives a cook-along: the command line, the
+sensors, a card, the website, paper. Several may show one cook-along; exactly one
+owns its cursor.
+_Avoid_: client, frontend, view, standalone (which implies an independent cursor
+and there is only ever one).
+
 **Plan**:
 A recipe's steps placed on a timeline, scheduled backwards from the finish.
 _Avoid_: schedule (the verb is fine), timeline, itinerary.
@@ -133,6 +146,20 @@ _Avoid_: test, check, condition.
 Whether the cook can walk away: `active`, `passive`, `unattended`.
 _Avoid_: effort, involvement, busy.
 
+**Waiting**:
+Timeline with no step running on it — what a `minDelayAfter` opens up. Not an
+attention: there is nothing to attend to. It is reported separately because a
+plan's figures are printed beside its total, and the brownies' chill is nearly
+half of theirs.
+_Avoid_: idle, downtime, dead time, resting (a rest is a step).
+
+**Finishes on**:
+What ends a step: a `state` (a doneness, and any stated time is an estimate of
+it), the `clock` (a time and no state, so the time is the instruction), or the
+`cook` (neither, so it is done when they have done it). One property, because
+every surface used to decide it privately and they disagreed.
+_Avoid_: timer type, step kind, is_timed.
+
 **Rigid chain**:
 A run of steps that may not be interrupted, from a `maxDelayAfter` of zero.
 _Avoid_: critical path, locked sequence.
@@ -143,7 +170,17 @@ _Avoid_: critical path, locked sequence.
 One thing wrong with a document: a severity, a stable code, the recipe, and the
 node it is about. The validator is the contract an enrichment agent iterates
 against, so a finding that fires spuriously is worse than no rule at all.
+Produced by the validator, the planner, the resolver and the mass table alike —
+it is the only report shape in the project, and the producer decides the code
+rather than whoever prints it.
 _Avoid_: error, warning, violation, issue, diagnostic.
+
+**Resolver finding**:
+A finding about a document *at a scale* — the tins will not hold a doubled cake,
+the batch was rounded to whole eggs. Always a warning: nothing is wrong with the
+document, and the resolution carrying it is one a cook can work from. Where its
+subject is the batch rather than a line, it names no node.
+_Avoid_: warning (the field was called that, and the word hid what it was).
 
 **Node**:
 What a finding is about — an ingredient, a component use, or a step — named by

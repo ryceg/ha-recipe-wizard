@@ -233,6 +233,62 @@ def test_hands_on_and_hands_off_time_do_not_double_count(cake):
     assert plan.active_s + plan.unattended_s <= plan.total_s + 1
 
 
+def test_the_effort_figures_partition_the_whole_timeline(cake, brownies):
+    """The header prints them beside a total, which claims they add up to it."""
+    for plan in (schedule(cake), schedule(brownies)):
+        accounted = plan.active_s + plan.unattended_s + plan.waiting_s
+        assert accounted == pytest.approx(plan.total_s, abs=1)
+
+
+def test_an_enforced_chill_is_neither_hands_on_nor_hands_off(brownies):
+    """It used to be neither anything else: the sweep skipped an interval with
+    no step running, so the brownies' three-hour chill and the quarter-hour
+    back to room temperature -- 195 of the recipe's 420 minutes -- fell out of
+    the report between one figure and the next."""
+    plan = schedule(brownies)
+    assert plan.waiting_s == pytest.approx((3 * 60 + 15) * 60, abs=60)
+
+
+def test_a_recipe_the_cook_never_waits_through_reports_no_waiting():
+    """A "waiting 0 min" the header would have to print on almost every recipe
+    is why the figure is only shown where there is some."""
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces="#batter", duration=5),
+            step("#bake", consumes=["#batter"], produces="#cake",
+                 duration=30, attention="unattended"),
+        ],
+    )
+    plan = schedule(recipe)
+    assert plan.waiting_s == 0.0
+    assert plan.active_s + plan.unattended_s == pytest.approx(plan.total_s, abs=1)
+
+
+def test_a_delay_another_branch_works_through_is_not_time_spent_waiting():
+    """Waiting is empty timeline, not the presence of a ``minDelayAfter``.
+
+    The delay here is 30 minutes, but the sauce is scheduled just-in-time into
+    the middle of it, so ten of those minutes are hands-on and only twenty are
+    time the cook is waiting. Counting the constraint rather than sweeping the
+    timeline would report all thirty and double-count the sauce.
+    """
+    recipe = build_recipe(
+        ingredients=[ingredient("flour", mass=250), ingredient("cream", mass=100)],
+        steps=[
+            step("#mix", consumes=["#flour"], produces="#batter", duration=5),
+            step("#rest", consumes=["#batter"], produces="#rested",
+                 duration=20, attention="unattended"),
+            step("#sauce", consumes=["#cream"], produces="#sauced", duration=10),
+            step("#serve", consumes=["#rested", "#sauced"], duration=1,
+                 min_delay_after=[("#rest", "PT30M", "it has to set")]),
+        ],
+    )
+    plan = schedule(recipe)
+    assert plan.waiting_s == pytest.approx(20 * 60, abs=1)
+    assert plan.step("#sauce").start_s > plan.step("#rest").end_s
+
+
 def test_doneness_reaches_the_scheduled_step(brownies):
     """It used to be dropped on the way onto the plan, which is where a timer
     is built from -- so the timer could only ever show the clock, and the clock

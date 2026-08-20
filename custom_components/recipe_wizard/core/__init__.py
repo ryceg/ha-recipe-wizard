@@ -7,6 +7,9 @@ this library, which keeps the resolver testable on its own.
 from .adjust import AdjustmentError, apply_adjustments
 from .compare import Comparison, compare
 from .cookalong import (
+    FINISHES_ON_CLOCK,
+    FINISHES_ON_COOK,
+    FINISHES_ON_STATE,
     CookAlong,
     CookStep,
     CursorStep,
@@ -41,7 +44,16 @@ from .model import (
     Storage,
     Vessel,
 )
-from .render import blocks, ingredients_for_step, render_table, uses_of
+from .printing import dish_pdf, library_pdf
+from .render import (
+    Row,
+    TableBlock,
+    blocks,
+    ingredients_for_step,
+    render_table,
+    table,
+    uses_of,
+)
 from .resolve import (
     BatchConstraintError,
     Resolution,
@@ -51,8 +63,9 @@ from .resolve import (
     materialise,
     resolve,
     resolve_component,
-    vessel_warnings,
+    vessel_findings,
 )
+from .serialise import dish_json, library_json
 from .schedule import Plan, check_plan, rigid_chains, schedule
 from .shopping import (
     CitedComponent,
@@ -66,6 +79,9 @@ from .units import Quantity, UnitError
 from .validate import Finding, validate_library, validate_recipe, worst_level
 
 __all__ = [
+    "FINISHES_ON_CLOCK",
+    "FINISHES_ON_COOK",
+    "FINISHES_ON_STATE",
     "Adjustment",
     "AdjustmentError",
     "BatchConstraintError",
@@ -100,11 +116,13 @@ __all__ = [
     "RecipeGraph",
     "Resolution",
     "ResolvedIngredient",
+    "Row",
     "ShoppingLine",
     "ShoppingList",
     "Step",
     "StepIngredient",
     "Storage",
+    "TableBlock",
     "UnitError",
     "UnresolvableComponent",
     "Use",
@@ -115,11 +133,15 @@ __all__ = [
     "compare",
     "cook_along",
     "cook_along_from_dish",
+    "dish_json",
+    "dish_pdf",
     "effective_recipe",
     "import_page",
     "import_url",
     "ingredient_mass",
     "ingredients_for_step",
+    "library_json",
+    "library_pdf",
     "mass_table",
     "materialise",
     "recipe_graph",
@@ -132,9 +154,10 @@ __all__ = [
     "shopping_list",
     "shopping_list_from_dish",
     "step_ingredients",
+    "table",
     "uses_of",
     "validate_library",
     "validate_recipe",
-    "vessel_warnings",
+    "vessel_findings",
     "worst_level",
 ]

@@ -77,6 +77,17 @@ class ScheduledStep:
     two is authoritative.
     """
 
+    stated_s: float | None = None
+    """This step's own stated duration, or ``None`` where it states none.
+
+    Not the same thing as ``duration_s``, and the difference is load-bearing: a
+    step that states no time is laid out at ``DEFAULT_STEP_S`` so the graph has a
+    length, and that minute is scaffolding rather than a claim about the food. Any
+    caller adding times up has to be able to leave it out -- ``state_decided_s``
+    counted it for one release and reported two minutes of assumed time as time a
+    state decides, which is the assumed minute being treated as data.
+    """
+
     @property
     def duration_s(self) -> float:
         return self.end_s - self.start_s
@@ -88,6 +99,15 @@ class Plan:
     total_s: float = 0.0
     active_s: float = 0.0
     unattended_s: float = 0.0
+    waiting_s: float = 0.0
+    """Wall-clock time with no step running at all.
+
+    A ``minDelayAfter`` is not a step, so the brownies' three-hour chill is an
+    empty stretch of timeline rather than something the sweep below can classify.
+    It used to fall out of the report entirely: 420 minutes total against 15
+    hands-on and 210 hands-off, with 195 minutes unaccounted for and a header
+    whose parts read as though they should add up. They now do.
+    """
     rigid_chains: list[list[str]] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     """What the planner could not do, in the report's one shape.
@@ -104,6 +124,36 @@ class Plan:
     )
     """Lazy id index. ``step()`` was a linear scan over a list every caller reads
     step-by-step -- the CLI, the cook-along and every scheduling test."""
+
+    @property
+    def state_decided_s(self) -> float:
+        """How much of this plan is a step whose end a *state* decides.
+
+        A sum of those steps' **stated** durations, and deliberately **not** a
+        share of ``total_s``: the timeline is swept rather than summed, because
+        branches overlap -- the brownies mix their chocolate batter while the peanut
+        butter freezes -- so a percentage would divide two numbers that do not
+        divide.
+
+        It exists because "total 7 hr" reads as a promise. Nearly three of those
+        hours are a bake and two chills that end when the food says so, and a cook
+        planning dinner around the number deserves to know which part of it is
+        soft. The planner still builds the timeline from the clock alone -- there
+        is nothing else to build it from -- but it no longer presents the result as
+        if the clock were the authority.
+
+        ``stated_s`` and not ``duration_s``, which is the whole reason that field
+        exists. The cake whisks its batter "until smooth and foamy" and gives no
+        time for it, so the planner lays the step out at its assumed minute -- and
+        counting that minute here would report the scaffolding as time a state
+        decides. A state-finished step with no stated time is a step to check, not
+        a quantity of soft time.
+        """
+        return sum(
+            entry.stated_s or 0.0
+            for entry in self.steps
+            if entry.doneness is not None
+        )
 
     def step(self, step_id: str) -> ScheduledStep | None:
         """The scheduled step with this id, under the library's one lookup rule."""
@@ -380,43 +430,57 @@ def schedule(
             end_s=end[step.id] - base,
             attention=step.attention,
             doneness=step.doneness,
+            # The step's own number, not the length it was laid out at.
+            stated_s=step.duration.seconds if step.duration else None,
         )
         for step in ordered
     ]
     scheduled.sort(key=lambda s: (s.start_s, s.position))
-    active, unattended = _attention_wall_clock(scheduled)
+    active, unattended, waiting = _wall_clock_split(scheduled)
 
     return Plan(
         steps=scheduled,
         total_s=max((s.end_s for s in scheduled), default=0.0),
         active_s=active,
         unattended_s=unattended,
+        waiting_s=waiting,
         rigid_chains=rigid_chains(graph),
         findings=findings,
     )
 
 
-def _attention_wall_clock(scheduled: list[ScheduledStep]) -> tuple[float, float]:
-    """Split the timeline into hands-on and hands-off wall-clock time.
+def _wall_clock_split(
+    scheduled: list[ScheduledStep],
+) -> tuple[float, float, float]:
+    """Split the timeline into hands-on, hands-off and waiting wall-clock time.
 
     Summing per-step durations double-counts overlapping branches, which is how
     you get "20 minutes unattended" out of a 40-minute recipe that also claims
-    20 minutes of prep. Sweeping the timeline instead means the two figures add
-    up to something a cook can actually plan around: any instant with an active
-    step running counts as active, even if something is baking alongside it.
+    20 minutes of prep. Sweeping the timeline instead means the figures add up to
+    something a cook can actually plan around: any instant with an active step
+    running counts as active, even if something is baking alongside it.
+
+    The third figure is the one this function used to drop. An interval with no
+    step running was skipped outright, on the reasoning that there was no
+    attention to classify -- true, and exactly why it needed reporting: a
+    ``minDelayAfter`` is a stretch of enforced waiting the cook must plan around,
+    and it is the *largest* part of some recipes. Skipping it left the brownies
+    reporting 420 minutes total against 225 minutes of accounted-for time. The
+    three returned figures now partition the timeline exactly, which is the
+    property the header claims by printing them beside a total.
     """
     boundaries = sorted({t for s in scheduled for t in (s.start_s, s.end_s)})
-    active = unattended = 0.0
+    active = unattended = waiting = 0.0
     for start, end in zip(boundaries, boundaries[1:]):
         running = [s for s in scheduled if s.start_s < end and s.end_s > start]
-        if not running:
-            continue
         span = end - start
-        if any(s.attention == "active" for s in running):
+        if not running:
+            waiting += span
+        elif any(s.attention == "active" for s in running):
             active += span
         else:
             unattended += span
-    return active, unattended
+    return active, unattended, waiting
 
 
 def check_plan(

@@ -30,6 +30,8 @@ python -m recipe_wizard vanilla-cake --components --plan
 python -m recipe_wizard vanilla-cake --batches 2 --cook       # the cook-along, doubled
 python -m recipe_wizard vanilla-cake --batches 2 --shopping   # one line per food
 python -m recipe_wizard --list --validate
+python -m recipe_wizard vanilla-cake --plan --shopping --pdf cake.pdf
+python -m recipe_wizard vanilla-cake --json                    # what the API serves
 python -m pytest
 ```
 
@@ -109,8 +111,9 @@ wrong and missed link.
 | `custom_components/recipe_wizard/core/` | The core library. No Home Assistant dependency, on purpose |
 | `custom_components/recipe_wizard/data/foods.json` | Food concepts, densities and per-unit masses |
 | `custom_components/recipe_wizard/` | The integration itself: the config flow, the coordinator, the cook-along sensors and actions |
+| `frontend/` | The cook-along surface: Lit, TypeScript, built into the integration's `www/` |
 | `recipes/` | Seven worked recipes, encoding the real sources faithfully |
-| `tests/` | 226 tests, most of them named after a failure mode |
+| `tests/` | The library suite, most of it named after a failure mode |
 | `tests_ha/` | The integration suite. Needs Home Assistant, so it runs on its own |
 
 Core modules: `resolve.py` (the pipeline), `dish.py` (a recipe resolved together
@@ -119,7 +122,8 @@ cook now, and what its timer says), `shopping.py` (the roll-up: one line per
 food), `graph.py` (the indexed dataflow graph every one of those asks),
 `adjust.py` (patch operations), `mass.py` (unit reconciliation, and the one
 definition of the batch total), `render.py` (the Modernist table),
-`validate.py`.
+`printing.py` and `pdf.py` (the same table on paper, and a PDF writer with no
+dependencies because the library has none), `validate.py`.
 
 Tests either build the recipe they need with `tests/support.py`, so the premise
 is visible in the test, or run against the real corpus where the corpus *is* the
@@ -209,6 +213,17 @@ docker run --rm -v "$(pwd):/app" -w /app rw-hass-test \
     python -m pytest -q -o asyncio_mode=auto tests_ha        # the integration
 ```
 
+On Windows -- where the container is the only way to run the second suite at all
+-- Git Bash needs the paths kept out of MSYS's hands:
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -w /app rw-hass-test \
+    python -m pytest -q -o asyncio_mode=auto tests_ha
+```
+
+Without that, MSYS rewrites `-w /app` into `C:/Program Files/Git/app` and Docker
+refuses the run, which reads as a Docker problem and is not one.
+
 The second one is a container because the harness cannot run on Windows at all
 (`homeassistant.runner` imports `fcntl`), and because it needs a few requirements
 the harness does not install — `tests_ha/Dockerfile` says which and why.
@@ -217,13 +232,11 @@ HACS validation beside them.
 
 ## Next
 
-* A `TodoListEntity` over `shopping.py`, whose lines are plain data with no
-  `TodoItem` in them, hanging off the same `entry.runtime_data.coordinator`.
 * Enrichment skills lifting scraped recipes from level 0 to level 3, iterating
   against the validator until it is clean.
-* The gaps listed at the end of the format doc — doneness actually *holding* a
-  timer rather than being displayed beside it, one timeline across component
-  recipes, conditional steps, a shopping list that knows your pantry.
+* The gaps listed at the end of the format doc — a plan that re-derives itself
+  from where the cook actually is, one timeline across component recipes,
+  conditional steps, a shopping list that knows your pantry.
 
 Recipe content in `recipes/` is transcribed from the sources linked in each
 file for personal use, with attribution retained in `author` and `isBasedOn`.

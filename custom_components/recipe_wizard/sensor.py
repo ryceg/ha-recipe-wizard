@@ -27,11 +27,17 @@ so this entity never invents a time:
 
 * a step that states no duration gets no timestamp, because the planner's assumed
   minute is scaffolding for the graph, not a number a cook should act on;
+* only a step a *state* finishes is called an estimate. "Beat the eggs for 30
+  seconds on speed 6" is not estimating anything, and hedging it teaches a cook to
+  discount every number on the screen -- including the ones that are estimates;
+* and when a state-finished step's estimate elapses, ``awaiting_check`` says so,
+  so a card can stop showing a countdown at zero and start asking the question the
+  document has always carried the answer to;
 * a step whose timer starts on an event rather than on arriving at it
   (``rw:timerStartsWhen``) gets no timestamp either, since nothing here knows when
   the water came back to the boil;
-* what it does answer is called an estimate in its own attributes, and carries
-  the doneness beside it so the authoritative half is never off the screen.
+* and what it does answer carries the doneness beside it, so the authoritative
+  half is never off the screen.
 """
 
 from __future__ import annotations
@@ -147,6 +153,10 @@ class CurrentStepSensor(CookAlongSensor):
             return None
         if cursor.problem is not None:
             return {
+                # Both names, and the same value: there is no step to belong to
+                # a different recipe, and a caller should not have to know that
+                # this branch is the one where the two agree.
+                "dish_id": cursor.saved.recipe_id,
                 "recipe_id": cursor.saved.recipe_id,
                 "batches": cursor.saved.batches,
                 "problem": cursor.problem,
@@ -154,17 +164,40 @@ class CurrentStepSensor(CookAlongSensor):
 
         dish = cursor.cook_along
         attributes: dict[str, Any] = {
+            # The **dish's** recipe, which is not the step's. ``recipe_id`` below
+            # is overwritten with whichever recipe the current step belongs to --
+            # the buttercream, once the cook is frosting the cake -- so a caller
+            # that wanted to ask the library for the dish had nothing to ask
+            # with. The panel was reduced to matching ``dish`` against recipe
+            # *names*, and identity lives in an ``@id``, never in a label.
+            "dish_id": cursor.saved.recipe_id,
             "dish": None if dish is None else dish.label,
             "batches": cursor.saved.batches,
-            "step_number": cursor.saved.cursor + 1,
+            # The *resolved* position, never the saved index. Those were the same
+            # number until a saved cursor started being addressed by step id, and
+            # a card doing its own arithmetic on this attribute would have
+            # disagreed with the state beside it the moment a sub-recipe grew a
+            # step under the cook.
+            "step_number": (
+                cursor.saved.cursor + 1 if cursor.step is None
+                else cursor.step.cursor + 1
+            ),
             "of": cursor.total_steps,
         }
-        if dish is not None and dish.resolution.warnings:
+        if dish is not None and dish.resolution.findings:
             # A batch below a recipe's stated minimum, or a tin the doubled
             # mixture will not fit in. The library reports these rather than
             # refusing, because a dish is built to be shown -- so this is the one
             # place a cook can find out before they start creaming butter.
-            attributes["warnings"] = list(dish.resolution.warnings)
+            #
+            # The library hands these over as ``Finding``s, and what goes on the
+            # screen is still a list of sentences. An attribute is read by
+            # dashboard cards and automation templates that this integration does
+            # not own, so its shape is a published interface: turning it into a
+            # list of dicts to expose a code no kitchen has any use for would
+            # break every card reading it, to say nothing new. The level and the
+            # code stay where they are useful, which is the validator.
+            attributes["warnings"] = [f.message for f in dish.resolution.findings]
         if dish is not None and dish.unresolvable:
             # A component that is a book citation is never expanded and is left
             # off the shopping list on purpose, so the cook-along is the only
@@ -194,6 +227,17 @@ class CurrentStepSensor(CookAlongSensor):
         attributes["may_pause_after"] = step.may_pause_after
         if step.timer_starts_when is not None:
             attributes["timer_starts_when"] = step.timer_starts_when
+        # What actually ends this step, so a card does not have to infer it from
+        # which of the other attributes happen to be set. "state" means the food
+        # decides and the cook has to look; "clock" means the stated time is the
+        # instruction; "cook" means it is done when they have done it.
+        attributes["finishes_on"] = step.finishes_on
+        if self.cursor.awaiting_check:
+            # The estimate has run out on a step whose state decides. This is the
+            # "nothing asks" half of the doneness gap: the countdown reaching zero
+            # is not the same event as the brownies being done, and until this
+            # existed the screen presented them as the same thing.
+            attributes["awaiting_check"] = True
         if step.safety_note is not None:
             attributes["safety_note"] = step.safety_note
         if step.produces:
@@ -221,9 +265,11 @@ class StepTimerSensor(CookAlongSensor):
 
         Nothing, rather than a guess, whenever the document does not support the
         arithmetic: no step, no stated duration, no arrival time, or a timer that
-        starts on something this integration cannot see.
+        starts on something this integration cannot see. The cursor owns that
+        decision now, because the wake-up it arms has to agree with what this
+        entity displays -- see ``cursor.estimated_end``.
         """
-        return self._ends_at(self._step_seconds())
+        return self.cursor.estimated_end
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -239,12 +285,21 @@ class StepTimerSensor(CookAlongSensor):
             "doneness": step.doneness,
             "started_at": self.cursor.saved.started_at,
         }
-        if self.native_value is not None:
-            # Only where there is a timestamp to qualify. Carrying
-            # ``is_estimate`` beside no estimate at all invites a card to print
-            # "estimated: unknown", and ``False`` would be the opposite lie.
+        attributes["finishes_on"] = step.finishes_on
+        if self.native_value is not None and step.time_is_estimate:
+            # Only where there is a timestamp *and* something it is an estimate
+            # of. This used to be set for every timestamp, which called "beat the
+            # eggs for 30 seconds" an estimate -- and a surface that hedges its
+            # certain numbers has no way left to mark its uncertain ones. Absent
+            # rather than ``False`` where there is nothing to qualify: a card
+            # printing "estimated: unknown" is the failure the previous comment
+            # here was guarding against, and it still applies.
             attributes["is_estimate"] = True
-        if self._step_seconds() is not None:
+        if self.cursor.awaiting_check:
+            # Past the estimate, still on the step. The countdown a dashboard
+            # renders from the timestamp has reached zero and the step is not over.
+            attributes["awaiting_check"] = True
+        if self.native_value is not None:
             latest = self._ends_at(step.timer_max_s)
             if latest is not None and latest != self.native_value:
                 # The brownies' peanut butter freezes for two to three hours. The
@@ -256,13 +311,6 @@ class StepTimerSensor(CookAlongSensor):
             # bench, not on the cook reaching this step.
             attributes["timer_starts_when"] = step.timer_starts_when
         return attributes
-
-    def _step_seconds(self) -> float | None:
-        """The current step's own stated duration, if it is timeable at all."""
-        entry = self.cursor.step
-        if entry is None or entry.step.timer_starts_when is not None:
-            return None
-        return entry.step.timer_s
 
     def _ends_at(self, seconds: float | None) -> datetime | None:
         """When the cook arrived, plus a number of seconds -- given both."""

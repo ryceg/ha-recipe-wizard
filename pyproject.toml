@@ -31,8 +31,77 @@ ha = [
     "pytest-homeassistant-custom-component==0.13.355",
 ]
 
+# The type check, for Platinum `strict-typing`. Install it *alongside* `ha` and
+# nowhere else, which is not a convenience: almost every annotation in the
+# integration is a Home Assistant type, so mypy without Home Assistant installed
+# reports fifty missing stubs and proves nothing. The harness is not needed --
+# mypy reads annotations and never imports anything -- so
+# `.github/workflows/ci.yml` gives this its own job with Home Assistant alone.
+typing = ["mypy==2.3.1"]
+
 [tool.pytest.ini_options]
 # Only the library suite. tests_ha is named explicitly on the command line,
 # because it needs a different interpreter and `-o asyncio_mode=auto`.
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.mypy]
+# One run over the whole package, so `core/` is checked as itself rather than as
+# an untyped dependency the integration happens to call.
+files = ["custom_components/recipe_wizard"]
+python_version = "3.14"
+# `custom_components` is a namespace package with no `__init__.py` -- that is how
+# Home Assistant loads it -- so mypy has to be told where the package root is,
+# or every module is named after its own directory and no override below matches.
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "."
+strict = true
+
+# Home Assistant's component packages publish their public names by plain import
+# and declare no `__all__`, so `no_implicit_reexport` -- which `strict` turns on
+# -- calls `homeassistant.components.todo.TodoItemStatus` a private name. That is
+# the documented import path and the only one there is. Narrowed here rather than
+# waved away with `# type: ignore` at three import sites that would then stop
+# reporting anything else that went wrong with them.
+implicit_reexport = true
+
+[[tool.mypy.overrides]]
+# The vendored library is checked, but not strictly. It is stdlib-only Python
+# that predates this configuration by the whole project, its readers take and
+# return bare `dict`s of JSON-LD on purpose (`_get` tolerates the `rw:` prefix
+# being present or absent, so the value really is `Any` until it is parsed), and
+# annotating eight hundred lines of `model.py` to satisfy `disallow_any_generics`
+# would be a large diff through the one module ADR 0001 asks people to leave
+# alone. What stays on is everything that finds a *defect*: the four axes
+# switched off here are strictness, not correctness.
+module = "custom_components.recipe_wizard.core.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_any_generics = false
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+# Pre-existing findings in the library, each one silenced by its own error code
+# in its own module so that nothing else in these files stops being checked.
+# **This block should only ever shrink.** A new entry here means a new defect was
+# waved through; fix it instead.
+#
+# `return-value` and `arg-type` were here for one real defect and are now gone:
+# `batch_yield_grams` declared `tuple[float | None, list[str]]` and had returned
+# `list[Finding]` since the resolver's warnings became findings. mypy was telling
+# the truth, so the signature was fixed rather than the report silenced. That is
+# the standard for anything that lands in this block.
+#
+# * `core/resolve.py`, `core/library.py` -- `union-attr` where a local guard
+#   implies the narrowing (`capacity` is only truthy when `vessel` is not None)
+#   that mypy cannot follow across two statements.
+# * `core/adjust.py`, `core/__main__.py` -- `assignment` where one local name is
+#   reused for two related types down a long branch.
+module = [
+    "custom_components.recipe_wizard.core.adjust",
+    "custom_components.recipe_wizard.core.library",
+    "custom_components.recipe_wizard.core.resolve",
+    "custom_components.recipe_wizard.core.__main__",
+]
+disable_error_code = ["assignment", "union-attr"]

@@ -9,6 +9,10 @@
 # blank -- so that it stays reviewable and would validate unchanged if this ever
 # moved into core.
 #
+# Because hassfest skips it, nothing catches a duplicated key here: a merge once
+# left seven rules stated twice, and YAML's last-one-wins quietly reinstated the
+# older, shorter comment on four of them. Read a diff of this file as prose.
+#
 # The two structural ceilings, stated once so no rule below has to argue them:
 #
 # * There are no devices. The integration reads a directory of documents, so
@@ -19,14 +23,10 @@
 #   Every call from the integration goes through `hass.async_add_executor_job`,
 #   and Platinum's `async-dependency` is the accepted price.
 #
-# Both platforms are in place -- the cook-along sensors and the shopping list -- so
-# the entity and action rules below are answered rather than deferred. What is left
-# is listed honestly: brands needs an asset nobody has drawn, icons need one shared
-# icons.json holding both platforms' keys, and reconfiguration is a real gap.
-# The sensor platform and the four cook-along actions are in place, so the entity
-# and action rules below are answered rather than deferred. What is left is listed
-# honestly: brands needs an asset nobody has drawn, icons need one shared
-# icons.json that every platform's keys go in, and reconfiguration is a real gap.
+# Both platforms are in place -- the cook-along sensors and the shopping list --
+# so the entity and action rules below are answered rather than deferred. One
+# rule is left as `todo` and only one: brands needs an icon.png drawn and a pull
+# request to an external repository.
 
 rules:
   # --- Bronze ---------------------------------------------------------------
@@ -55,22 +55,25 @@ rules:
       The coordinator is in coordinator.py, shared loading in loader.py, and the
       base entity in entity.py -- which owns the unique-id scheme and the one
       service device, so neither platform invents its own.
-      The coordinator is in coordinator.py, shared loading in loader.py, and the
-      base entity in entity.py -- which owns the unique-id scheme and the one
-      service device, so no platform invents its own.
   config-flow: done
   config-flow-test-coverage:
     status: done
     comment: >-
       tests_ha/test_config_flow.py covers the form, the created entry, the
       relative-path case, each of the five error keys, recovery after an error,
-      and the single-entry abort.
+      the single-entry abort, and every path through the reconfigure step.
   dependency-transparency:
     status: done
     comment: >-
       requirements is empty. The resolver is vendored at
       custom_components/recipe_wizard/core/ and is stdlib-only, so there is no
-      third-party code to be transparent about.
+      third-party code to be transparent about. The manifest does name Home
+      Assistant components: http as a dependency, because the two read-only views
+      and the panel's static directory need hass.http to exist before async_setup
+      runs, and frontend and panel_custom as after_dependencies, because the
+      sidebar entry needs them set up first where they are going to be set up at
+      all while the HTTP surface works perfectly well on a Home Assistant with no
+      frontend installed.
   docs-actions:
     status: done
     comment: >-
@@ -79,10 +82,6 @@ rules:
       plain language as the rest of that file. Note that hassfest fails an
       integration that registers an action with no services.yaml entry, so those two
       files always move together.
-    status: done
-    comment: >-
-      docs/integration.md documents all four actions, their fields and what each
-      refuses to do, in the same plain language as the rest of that file.
   docs-conditions:
     status: exempt
     comment: The integration provides no conditions.
@@ -96,7 +95,8 @@ rules:
     status: done
     comment: >-
       docs/integration.md says what deleting the entry does and does not touch --
-      notably that recipe files are the user's own and are never removed.
+      notably that recipe files are the user's own and are never removed, and that
+      the repair notices go with the entry.
   docs-triggers:
     status: exempt
     comment: The integration provides no triggers.
@@ -113,24 +113,14 @@ rules:
     comment: >-
       entity.py sets it to the config entry id plus a key written in code, so
       moving or renaming the recipe directory -- the one thing the user configures
-      -- does not orphan every dashboard card pointing at these entities.
+      -- does not orphan every dashboard card pointing at these entities. The
+      reconfigure flow is what makes that reachable, and
+      test_reconfiguring_keeps_the_entities_a_dashboard_points_at holds it.
   has-entity-name:
     status: done
     comment: >-
       _attr_has_entity_name is set once, on the base entity in entity.py, and every
       entity takes its visible name from a translation key.
-      There is no external event stream. RecipeWizardEntity subclasses
-      CoordinatorEntity, which owns the library subscription, and the cook-along
-      sensors add their cursor subscription in async_added_to_hass through
-      async_on_remove.
-  entity-unique-id:
-    status: done
-    comment: >-
-      entry_id plus a key written in code ("current_step", "step_timer"), so moving
-      the recipe folder does not orphan every dashboard card pointing at them.
-  has-entity-name:
-    status: done
-    comment: _attr_has_entity_name is set once, on the base entity in entity.py.
   runtime-data:
     status: done
     comment: >-
@@ -141,7 +131,9 @@ rules:
     comment: >-
       The config flow loads the library in the executor and reports four distinct
       failures -- missing directory, no recipes, unreadable food bank, a document
-      that will not parse -- each with its own message.
+      that will not parse -- each with its own message. The reconfigure step runs
+      the same check through the same helper, so a folder that will not load
+      cannot be stored over one that does.
   test-before-setup:
     status: done
     comment: >-
@@ -152,7 +144,9 @@ rules:
     comment: >-
       single_config_entry is true in the manifest. There is one recipe library, so
       a second entry could only ever be a duplicate; Home Assistant aborts the
-      second flow itself with single_instance_allowed.
+      second flow itself with single_instance_allowed. It exempts
+      SOURCE_RECONFIGURE from that abort, which is what lets the one entry be
+      pointed at another folder.
 
   # --- Silver ---------------------------------------------------------------
   action-exceptions:
@@ -165,21 +159,22 @@ rules:
       is a translation key naming the recipe or the position it is about. Editing
       the wording of a computed to-do item raises rather than accepting a change the
       next refresh would discard.
-      ServiceValidationError for what a cook can fix -- a recipe id that matches
-      nothing or matches three, moving with nothing on the go, stepping back from
-      the first step -- and HomeAssistantError for a document that will not
-      resolve. Every message is a translation key in strings.json and names the
-      recipe or the position it is about.
   config-entry-unloading:
     status: done
     comment: >-
-      async_unload_entry forwards the unload. Nothing else needs tearing down --
-      the library is plain objects and polling stops with the last listener.
+      async_unload_entry forwards the unload. The library is plain objects and
+      polling stops with the last listener, so the only thing with a life of its
+      own is the cook-along's wake-up: cursor.py arms one
+      async_track_point_in_time at the current step's estimate, and registers the
+      cancel through entry.async_on_unload rather than the unsubscribe itself,
+      because that unsubscribe is replaced every time the cursor moves.
+      Repair notices are cleared in async_remove_entry and deliberately not on
+      unload, since a reload is an unload.
   docs-configuration-parameters:
     status: done
     comment: >-
       There is one setting, the recipe folder, and docs/integration.md documents
-      it. There is no options flow.
+      it, including how to change it afterwards. There is no options flow.
   docs-installation-parameters:
     status: done
     comment: docs/integration.md walks the single setup field.
@@ -192,10 +187,6 @@ rules:
       than showing the last good answer, while a recipe deleted from under a running
       cook-along reports unknown with a problem attribute -- there the library is
       fine and only the position is not.
-      Both sensors are CoordinatorEntity subclasses, so a library that will not
-      load makes them unavailable with UpdateFailed's reason attached. A recipe
-      deleted from under a running cook-along is different and reports unknown with
-      a problem attribute, because the library is fine and the position is not.
   integration-owner:
     status: done
     comment: codeowners is set in the manifest.
@@ -211,9 +202,6 @@ rules:
       the library the coordinator has already loaded and the cook-along the cursor
       has already resolved, so there is nothing to serialise. Any later platform
       module needs the same line.
-      PARALLEL_UPDATES = 0 in sensor.py. Every read is served from the library the
-      coordinator has already loaded and the cook-along the cursor has already
-      resolved, so there is nothing to serialise.
   reauthentication-flow:
     status: exempt
     comment: There are no credentials. Nothing can expire or be revoked.
@@ -223,11 +211,13 @@ rules:
       tests_ha covers the glue, the loader, the flow, both cook-along sensors, the
       shopping list and all five actions -- including that no property touches the
       library, that the dish is resolved once for a cursor that only moves, and that
-      both the cursor and a half-done shopping trip survive a restart.
-      tests_ha covers the glue, the loader, the flow, both cook-along sensors and
-      all four actions -- including that no property touches the library, that the
-      dish is resolved once for a cursor that only moves, and that the cursor
-      survives an unload and set-up again.
+      both the cursor and a half-done shopping trip survive a restart. The four
+      rules closed most recently have files of their own: test_issues.py,
+      test_diagnostics.py, test_icons.py, and the reconfigure half of
+      test_config_flow.py. test_http.py covers the two views and the panel: that a
+      URN with a slash in it reaches the route, that neither view answers without a
+      login, that nothing is resolved on the event loop, and that a checkout with no
+      frontend bundle in it still gets its sensors and its shopping list.
 
   # --- Gold -----------------------------------------------------------------
   devices:
@@ -236,11 +226,15 @@ rules:
       Nothing here is a device. The integration reads local documents, which is
       why integration_type is service.
   diagnostics:
-    status: todo
+    status: done
     comment: >-
-      Worth having, and it must redact nothing sensitive -- recipe files are the
-      user's own content and a diagnostics dump should stay to counts, paths and
-      validator findings.
+      diagnostics.py redacts nothing, because it gathers nothing that would need
+      it: counts, the recipe folder, the entry's own settings, the cook-along as a
+      position, and every validator finding as level, code, recipe and node. Recipe
+      content is out -- step text and finding messages especially, since a message
+      is prose built by interpolating strings out of the document. What cannot be
+      excluded is said out loud in the module and in the tests: a semantic id is
+      made of an ingredient's name, and the id is in scope.
   discovery:
     status: exempt
     comment: A directory of files on the host cannot be discovered on a network.
@@ -259,8 +253,6 @@ rules:
       attributes, an automation that announces a step's estimated timer, the
       set_shopping_list action as YAML for a dashboard button, and what each kind of
       shopping line means against the doubled vanilla cake.
-      docs/integration.md carries a cook-along dashboard card over the sensor's
-      attributes and an automation that announces a step's estimated timer.
   docs-known-limitations:
     status: done
     comment: >-
@@ -273,14 +265,16 @@ rules:
     status: done
     comment: >-
       docs/integration.md lists both sensors, every attribute worth reading, the
-      shopping list entity, and all five actions.
-    status: done
-    comment: >-
-      docs/integration.md lists both sensors, every attribute worth reading, and
-      the four actions.
+      shopping list entity, all five actions, and the Recipes page in the sidebar
+      -- what it shows, that it is optional, and that everything on it is also
+      available as the entities a hand-built dashboard already uses.
   docs-troubleshooting:
     status: done
-    comment: docs/integration.md maps each setup error to what to do about it.
+    comment: >-
+      docs/integration.md maps each setup error to what to do about it, has a
+      section on the repair notice a broken recipe raises, and says what to do
+      when Recipes is missing from the sidebar -- which is a half-copied install
+      rather than a fault, and is why the log line names the file.
   docs-use-cases:
     status: done
     comment: docs/integration.md opens with the cook-along and the shopping list.
@@ -303,37 +297,51 @@ rules:
   entity-disabled-by-default:
     status: exempt
     comment: >-
-      Two entities, and both are the point. The rule exists for noisy or expensive
-      entities; these cost one already-loaded library between them.
+      Three entities, and all three are the point. The rule exists for noisy or
+      expensive entities; these cost one already-loaded library between them.
   entity-translations:
     status: done
     comment: >-
       Every entity sets a translation_key and strings.json carries the entity block
       -- sensor.current_step, sensor.step_timer, todo.shopping_list. No name is
       written in Python.
-      Both sensors set a translation_key and strings.json carries the entity block.
-      No name is written in Python.
   exception-translations:
     status: done
     comment: >-
       RecipeLibraryError passes translation_domain and translation_key, and
       strings.json carries the matching exceptions block.
   icon-translations:
-    status: todo
+    status: done
     comment: >-
-      Needs one icons.json holding every platform's entity keys and every action,
-      so it is written once when the platforms are all in rather than merged from
-      two half-files.
+      One icons.json holds both platforms' entity keys and all five actions,
+      including the entity service the todo platform registers -- the two are
+      registered in different places and there is one file, which is what the rule
+      is for. current_step also takes state icons for idle and finished, the two
+      states that are words rather than a position. tests_ha/test_icons.py compares
+      the file against the entity registry and the registered actions in both
+      directions, so a platform or an action added without an icon fails rather
+      than rendering as a generic dot nobody notices.
   reconfiguration-flow:
-    status: todo
+    status: done
     comment: >-
-      A real gap rather than a formality -- moving the recipe folder should not
-      mean deleting and re-adding the integration.
+      async_step_reconfigure in config_flow.py, sharing _async_checked_directory
+      with the user step so both run the same load-in-the-executor check and
+      produce the same five error keys. It writes with data_updates and reloads,
+      which keeps entry_id -- and therefore every unique_id, dashboard card and
+      automation -- along with the cook-along position in entry.options and the
+      shopping list's ticks. Moving the recipe folder used to mean deleting the
+      entry and re-adding it, which threw all of that away.
   repair-issues:
-    status: todo
+    status: done
     comment: >-
-      The obvious candidate is a repair for a document the validator reports
-      errors on, which is more useful than a log line nobody reads.
+      issues.py raises one non-fixable card per document the validator reports
+      *errors* on, naming the recipe and listing every node a fix goes on. Warnings
+      never raise one and that is the whole design: a warning here is frequently the
+      correct outcome for a source that says "a splash of milk", and a card nobody
+      can clear teaches people to dismiss the ones that matter. It is not fixable
+      because the fix is an edit to a document the integration only ever reads.
+      Raised after a successful reload, withdrawn from the registry when the
+      finding goes, and swept in async_remove_entry.
   stale-devices:
     status: exempt
     comment: No devices.
@@ -349,10 +357,18 @@ rules:
   inject-websession:
     status: exempt
     comment: >-
-      The integration makes no HTTP requests at runtime. Importing a recipe from a
-      URL is a command-line operation outside Home Assistant.
+      The integration makes no HTTP requests at runtime. It *serves* two read-only
+      views to the Recipes page, which is Home Assistant's own aiohttp application
+      and not a session this integration owns. Importing a recipe from a URL is a
+      command-line operation outside Home Assistant.
   strict-typing:
-    status: todo
+    status: done
     comment: >-
-      The integration is annotated throughout but there is no py.typed marker on
-      the vendored library and no mypy run in CI yet.
+      core/py.typed marks the vendored library as typed, and `python -m mypy` runs
+      over the whole package from pyproject.toml with its own CI job. The
+      integration modules are strict and clean. core/ is checked but not strictly:
+      the four strictness axes it fails are switched off with their reasons, and
+      four of its modules carry pre-existing annotation defects silenced by error
+      code -- one of them real (batch_yield_grams still declares list[str] and
+      returns list[Finding]) and left for a change that owns core/. That block is
+      the honest remainder of this rule and should only ever shrink.

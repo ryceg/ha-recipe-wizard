@@ -46,12 +46,15 @@ rather than hanging.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 from .library import Library, LibraryError
 from .model import Adjustment, ComponentUse
 from .resolve import Resolution, UnresolvableComponent, resolve, resolve_component
 from .units import Quantity
+
+if TYPE_CHECKING:
+    from .validate import Finding
 
 
 class ComponentCycleError(LibraryError):
@@ -99,18 +102,28 @@ class Dish:
                 continue
             yield from child.walk(include_optional=include_optional)
 
-    def all_warnings(self, *, include_optional: bool = True) -> list[tuple[str, str]]:
-        """Every warning in the tree, paired with the label that produced it.
+    def all_findings(
+        self, *, include_optional: bool = True
+    ) -> list[tuple[str, "Finding"]]:
+        """Every finding in the tree, paired with the label that produced it.
 
         Kept as pairs rather than concatenated: "the tins will not hold it" is
         about the cake and "rounded up to 1 whole batch" is about the frosting,
         and a cook who cannot tell which is which is worse off than one who
         sees only the parent's.
+
+        **The label stays outside the finding**, which is why this is a pair and
+        not a list. ``Finding.recipe`` is a document id, and the label is the
+        *use's* -- "Vanilla buttercream" as the cake asks for it. One sub-recipe
+        used twice by one parent produces findings identical in every field, and
+        the label is the only thing that says which use each belongs to; folding
+        it into the record would put a property of a use on a record about a
+        document, and lose it in the two-uses case anyway.
         """
         return [
-            (dish.label, warning)
+            (dish.label, finding)
             for dish in self.walk(include_optional=include_optional)
-            for warning in dish.resolution.warnings
+            for finding in dish.resolution.findings
         ]
 
     def all_change_log(self, *, include_optional: bool = True) -> list[tuple[str, str]]:

@@ -4,6 +4,11 @@
 # ``homeassistant.runner``, so ``tests_ha`` cannot run on Windows at all; locally
 # it runs in a container, and here it runs natively.
 #
+# The frontend is a third job for a related reason: Node is a development
+# dependency of the card and the panel and must never become one of the library,
+# so it appears in exactly one job. That job also rebuilds the committed bundle
+# and fails if it differs from what the source produces -- see the last step.
+#
 # The two suites are separate jobs on purpose, not two commands in one job. With
 # the harness installed, its autouse fixtures attach to every test in the session
 # and all 220 library tests error. Running the library suite in a job with no
@@ -24,6 +29,10 @@ env:
   # anyone installing them by hand on Linux.
   HOMEASSISTANT_VERSION: "2026.8.1"
   HARNESS_VERSION: "0.13.355"
+  # Pinned like everything else here: mypy finds new things between releases, and
+  # an unpinned type check is a build that goes red on a day nobody changed the
+  # code. The same pin is in pyproject.toml's `typing` extra.
+  MYPY_VERSION: "2.3.1"
 
 jobs:
   library:
@@ -94,6 +103,99 @@ jobs:
         # ``-o asyncio_mode=auto`` is required: without it every test errors on the
         # harness's autouse async fixtures.
         run: python -m pytest -q -o asyncio_mode=auto tests_ha
+
+  frontend:
+    name: Frontend (the cook-along card and panel)
+    runs-on: ubuntu-latest
+    # Its own job, not a step bolted onto a Python one, for the same reason the
+    # two Python suites are separate: a broken card should fail a check that says
+    # "frontend", rather than making the library look red. Node never appears in
+    # the ``library`` job, which exists to prove the library needs nothing.
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned exactly, like every other version here. The freshness check
+          # below compares bytes, so the toolchain that produces them is part of
+          # the contract -- a build that is reproducible only within a major
+          # version would go red on a day nobody changed the code.
+          node-version: "26.2.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        # ``ci`` and not ``install``: the lockfile is committed and is what makes
+        # two machines produce the same bundle.
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        # Before the suite, not after: one test imports the built bundle and
+        # checks that loading it defines ``recipe-wizard-panel`` and
+        # ``recipe-wizard-card``. Those two names are a contract with the Python
+        # half, in two languages and two directories, and a rename that compiles
+        # cleanly can still leave a blank page.
+        run: npm run build
+
+      - name: Frontend suite
+        run: npm test
+
+      - name: The committed bundle is what the source produces
+        working-directory: .
+        # The half of this that is not optional.
+        #
+        # ``custom_components/recipe_wizard/www/recipe-wizard.js`` is committed
+        # because HACS installs by copying ``custom_components/recipe_wizard/``
+        # out of the repository and there is no build step at the far end -- the
+        # same constraint that put the Python library inside the integration. A
+        # committed artifact goes stale silently: the source changes, the bundle
+        # does not, and the kitchen tablet runs last month's card while every
+        # check stays green. So CI builds it and fails on any difference.
+        #
+        # ``git status --porcelain`` rather than ``git diff``: it catches a bundle
+        # that was never committed at all, which is the first way this goes wrong.
+        run: |
+          if [ -n "$(git status --porcelain -- custom_components/recipe_wizard/www)" ]; then
+            echo "::error::The committed bundle is not what frontend/ builds. Run 'npm run build' in frontend/ and commit custom_components/recipe_wizard/www/."
+            git status --porcelain -- custom_components/recipe_wizard/www
+            git diff -- custom_components/recipe_wizard/www | head -n 40
+            exit 1
+          fi
+          echo "The committed bundle matches the source."
+
+  typing:
+    name: mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install Home Assistant and mypy
+        # Home Assistant, not the test harness: mypy reads the annotations and
+        # never imports anything, so the components the harness drags in for the
+        # todo platform (hassil, PyTurboJPEG and the rest) are not needed here.
+        # Home Assistant itself is, and is not optional -- nearly every
+        # annotation in the integration is one of its types, and without it mypy
+        # reports fifty missing stubs and checks nothing that matters.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "homeassistant==${HOMEASSISTANT_VERSION}" \
+            "mypy==${MYPY_VERSION}"
+
+      - name: Type check
+        # No arguments: pyproject.toml holds the file list, the strictness, and
+        # the reason behind every place the strictness is narrowed.
+        run: python -m mypy
 
   hassfest:
     name: hassfest

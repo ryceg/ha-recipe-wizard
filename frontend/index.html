@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  The surface with nothing behind it.
+
+  `npm run dev` serves this: the same element the panel and the card mount, on
+  the fixture source, so the whole cook-along can be worked on without a Home
+  Assistant anywhere. Regenerate the fixtures from the library itself -- the
+  command is at the top of frontend/test/support.ts -- rather than by hand, or this
+  page starts agreeing with a payload the library does not write.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recipe Wizard cook-along</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #fafafa;
+        font-family: Roboto, system-ui, sans-serif;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+      }
+    </style>
+  </head>
+  <body>
+    <main><recipe-wizard-surface id="surface"></recipe-wizard-surface></main>
+    <script type="module" src="/dev/main.ts"></script>
+  </body>
+</html>

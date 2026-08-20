@@ -18,15 +18,30 @@ findings come out of one low-confidence volume conversion, and which one fires
 was being decided by re-fetching the ``Food`` and re-reading ``form_sensitive``
 off it -- a second copy of a decision made here. ``MassResult.reason`` carries
 it instead.
+
+**What this module reports are ``validate.Finding``s**, for the same reason
+``schedule.py`` gives: one report shape, and the producer decides the code
+rather than whoever prints it. It was a list of bare strings until the validator
+had to tell a unit divergence from an unreducible line, which it did by testing
+the message for the word ``"disagree"`` -- so the severity of a finding was
+decided by the wording of a sentence, three modules away from the comparison
+that knew. ``Finding`` lives in ``validate.py`` because that module is the
+contract and this is one producer of it, so the import is made inside the
+function that builds them; ``validate`` imports this module at the top and a
+module-level import back would be a cycle.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from .library import FoodBank
 from .model import Ingredient, Recipe
 from .units import MeasurementSystem, UnitError, relative_difference, to_grams
+
+if TYPE_CHECKING:
+    from .validate import Finding
 
 #: Conversions disagreeing by more than this are reported.
 DIVERGENCE_THRESHOLD = 0.05
@@ -47,13 +62,23 @@ DENSITY_MISSING = "density-missing"
 #: The line states no mass, no volume and no count.
 NO_MEASURE = "no-measure"
 
+#: Two of a line's own columns cannot both be right. A warning: the document is
+#: faithful to a source that contradicts itself, and picking a winner silently
+#: is the thing this module exists to refuse.
+UNIT_DIVERGENCE = "unit-divergence"
+#: A line that could not be reduced to grams at all. Information rather than a
+#: warning -- a volume with no density in the bank is a gap in the bank as often
+#: as it is a defect in the document.
+UNRESOLVED_MASS = "unresolved-mass"
+
 
 @dataclass(slots=True)
 class MassResult:
     grams: float | None
     source: str
     """Which measure won: mass, count, volume, or none."""
-    warnings: list[str] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
+    """What was wrong with this line, each naming the line as its node."""
     confidence: str = "high"
     reason: str | None = None
     """Why ``confidence`` is not ``high``, as one of the codes above.
@@ -73,8 +98,18 @@ def ingredient_mass(
     system: MeasurementSystem = "metric",
     *,
     canonical: str = "metric",
+    recipe_id: str,
 ) -> MassResult:
-    """Reduce an ingredient to grams, preferring the recipe's canonical column."""
+    """Reduce an ingredient to grams, preferring the recipe's canonical column.
+
+    ``recipe_id`` is required and is only ever put into the findings. An
+    ``Ingredient`` does not know which document it came out of, and a ``Finding``
+    that could not say would be one an enrichment loop cannot act on -- so the
+    caller that does know has to say, rather than the record being left half
+    filled in and completed by whoever reports it.
+    """
+    from .validate import Finding, INFO, WARNING
+
     food = foods.get(ing.food.id if ing.food else None)
     density = food.density_g_per_ml if food else None
     unit_mass = None
@@ -84,13 +119,18 @@ def ingredient_mass(
         unit_mass = food.unit_mass_g
 
     candidates: dict[str, float] = {}
-    warnings: list[str] = []
+    findings: list[Finding] = []
+
+    def unresolved(message: str) -> None:
+        findings.append(
+            Finding(INFO, UNRESOLVED_MASS, recipe_id, f"{ing.name}: {message}", ing.id)
+        )
 
     if ing.mass is not None:
         try:
             candidates["mass"] = to_grams(ing.mass, system=system)
         except UnitError as exc:
-            warnings.append(f"{ing.name}: {exc}")
+            unresolved(str(exc))
     if ing.count is not None and unit_mass is not None:
         candidates["count"] = ing.count.value * unit_mass
     if ing.volume is not None and density is not None:
@@ -99,16 +139,16 @@ def ingredient_mass(
                 ing.volume, system=system, density_g_per_ml=density
             )
         except UnitError as exc:
-            warnings.append(f"{ing.name}: {exc}")
+            unresolved(str(exc))
 
     if not candidates:
         if ing.to_taste:
             return MassResult(None, "none", [], "n/a")
         missing_density = ing.volume is not None
         detail = "no density in the food bank" if missing_density else "no measures given"
-        warnings.append(f"{ing.name}: cannot be reduced to grams ({detail})")
+        unresolved(f"cannot be reduced to grams ({detail})")
         return MassResult(
-            None, "none", warnings, "none",
+            None, "none", findings, "none",
             DENSITY_MISSING if missing_density else NO_MEASURE,
         )
 
@@ -118,10 +158,12 @@ def ingredient_mass(
         for b in keys[i + 1:]:
             diff = relative_difference(candidates[a], candidates[b])
             if diff > DIVERGENCE_THRESHOLD:
-                warnings.append(
+                findings.append(Finding(
+                    WARNING, UNIT_DIVERGENCE, recipe_id,
                     f"{ing.name}: {a} says {candidates[a]:.0f} g but {b} says "
-                    f"{candidates[b]:.0f} g ({diff:.0%} apart) - source columns disagree"
-                )
+                    f"{candidates[b]:.0f} g ({diff:.0%} apart) - source columns disagree",
+                    ing.id,
+                ))
 
     preference = ["mass", "count", "volume"]
     if canonical in ("US", "AU", "cups", "volume"):
@@ -142,10 +184,10 @@ def ingredient_mass(
                         if food is not None and food.form_sensitive and ing.form is None
                         else DENSITY_UNCERTAIN
                     )
-            return MassResult(candidates[key], key, warnings, confidence, reason)
+            return MassResult(candidates[key], key, findings, confidence, reason)
 
     key = keys[0]
-    return MassResult(candidates[key], key, warnings, "low")
+    return MassResult(candidates[key], key, findings, "low")
 
 
 @dataclass(slots=True)
@@ -155,14 +197,14 @@ class MassTable:
     This exists because the same line used to be reduced up to four times per
     recipe -- twice in the resolver, twice more in the validator -- and each
     caller then flattened the answer differently. The resolver kept the grams
-    and threw away the warnings so as not to report the chocolate buttercream's
-    18% butter divergence twice; the validator kept the warnings and summed the
-    grams into a batch total that included the optional milk and ignored the
-    mass loss factor, so the denominator it measured an ingredient's share
-    against was a number nothing else in the system called a yield.
+    and threw away the findings so as not to report the chocolate buttercream's
+    18% butter divergence twice; the validator kept them and summed the grams
+    into a batch total that included the optional milk and ignored the mass loss
+    factor, so the denominator it measured an ingredient's share against was a
+    number nothing else in the system called a yield.
 
     So the table holds the whole ``MassResult`` and lets callers ask what they
-    need of it. Each warning is reachable exactly once, which is what makes
+    need of it. Each finding is reachable exactly once, which is what makes
     double-reporting a thing you have to opt into rather than something you
     have to remember to avoid.
     """
@@ -183,7 +225,7 @@ class MassTable:
         return self.results[ingredient_id].grams
 
     def result(self, ingredient_id: str) -> MassResult:
-        """One line's full result: grams, source, confidence, reason, warnings.
+        """One line's full result: grams, source, confidence, reason, findings.
 
         Raises ``KeyError`` for a line the recipe does not have. That is a bug
         in the caller rather than a missing measurement, and returning ``None``
@@ -193,9 +235,9 @@ class MassTable:
         return self.results[ingredient_id]
 
     @property
-    def warnings(self) -> list[str]:
-        """Every line's warnings, in document order, each appearing once."""
-        return [w for result in self.results.values() for w in result.warnings]
+    def findings(self) -> list[Finding]:
+        """Every line's findings, in document order, each appearing once."""
+        return [f for result in self.results.values() for f in result.findings]
 
 
 def mass_table(recipe: Recipe, foods: FoodBank) -> MassTable:
@@ -213,6 +255,7 @@ def mass_table(recipe: Recipe, foods: FoodBank) -> MassTable:
             foods,
             recipe.measurement_system,
             canonical=recipe.canonical_unit_system,
+            recipe_id=recipe.id,
         )
         results[ing.id] = result
         if result.grams is not None and not ing.optional:

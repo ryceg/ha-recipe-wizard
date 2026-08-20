@@ -30,6 +30,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import DOMAIN, UPDATE_INTERVAL
 from .core.library import Library
+from .issues import async_reconcile_issues, error_findings
 from .loader import RecipeLibraryError, library_fingerprint, load_library
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,11 +77,26 @@ class RecipeLibraryCoordinator(DataUpdateCoordinator[Library]):
         raises ``ConfigEntryNotReady`` (Bronze ``test-before-setup``) and a later
         one marks the entities unavailable with the reason attached, rather than
         leaving them showing a library that is no longer on disk.
+
+        Validation is a second executor hop and only on a real reload -- the
+        identity check is exact, because ``_load_if_changed`` returns
+        ``self.data`` itself when nothing moved. It is not folded into the first
+        hop: that one exists to make the fingerprint and the load it guards
+        atomic, and hanging a third concern off it would blur what the atomicity
+        is for. Gold ``repair-issues`` is what this is; ``issues.py`` says why it
+        raises a card for errors alone.
         """
         try:
-            return await self.hass.async_add_executor_job(self._load_if_changed)
+            library = await self.hass.async_add_executor_job(self._load_if_changed)
         except RecipeLibraryError as err:
             raise UpdateFailed(str(err)) from err
+
+        if library is not self.data:
+            by_document = await self.hass.async_add_executor_job(
+                error_findings, library
+            )
+            async_reconcile_issues(self.hass, by_document)
+        return library
 
     def _load_if_changed(self) -> Library:
         """Runs in the executor: fingerprint first, parse only on a change.

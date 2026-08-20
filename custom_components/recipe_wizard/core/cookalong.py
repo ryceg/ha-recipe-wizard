@@ -118,6 +118,17 @@ class StepIngredient:
         return line
 
 
+#: A state decides this step is over, and any stated time is an estimate of it.
+#: The brownies bake for "32 min" *until* "edges firmish, centre still jiggling".
+FINISHES_ON_STATE = "state"
+#: The clock decides, because the time *is* the instruction: "beat the eggs for
+#: 30 seconds on speed 6". Nothing here is an estimate of anything.
+FINISHES_ON_CLOCK = "clock"
+#: The cook decides, by having done it. A step that stated no time and no state
+#: is not waiting for anything -- "whisk the flour, baking powder and salt".
+FINISHES_ON_COOK = "cook"
+
+
 @dataclass(slots=True)
 class CookStep:
     """One step, ready to put on a screen: when, what, what with, what timer.
@@ -163,6 +174,41 @@ class CookStep:
     @property
     def has_timer(self) -> bool:
         return self.timer is not None
+
+    @property
+    def finishes_on(self) -> str:
+        """What decides this step is over: a state, the clock, or the cook.
+
+        ``docs/format.md`` has been clear from the start that a stated time is an
+        estimate and the doneness is authoritative, and every surface said so in
+        prose while every surface also decided it privately -- ``timer_label()``
+        by asking whether ``doneness`` is set, ``sensor.py`` by asking the same
+        question a second time and calling *every* timestamp an estimate, the
+        planner by not asking at all. One property, so the three of them cannot
+        drift, and so the distinction is a thing a caller can branch on rather
+        than a sentence a cook has to read carefully.
+
+        Deliberately not folded in with ``timer_starts_when``, which is a
+        different axis: that says when the clock *starts* (an event at the bench
+        this integration cannot see), not what ends the step. A step can finish on
+        the clock and still have no timestamp anyone can compute.
+        """
+        if self.doneness is not None:
+            return FINISHES_ON_STATE
+        if self.timer is not None:
+            return FINISHES_ON_CLOCK
+        return FINISHES_ON_COOK
+
+    @property
+    def time_is_estimate(self) -> bool:
+        """Whether this step's stated time is an estimate of something else.
+
+        True only for a state-finished step that also states a time. A step that
+        finishes on the clock is not estimating: 30 seconds on speed 6 is the
+        instruction, and hedging it on a screen teaches a cook to discount every
+        number the surface shows them -- including the ones that are estimates.
+        """
+        return self.finishes_on == FINISHES_ON_STATE and self.timer is not None
 
     def timer_label(self) -> str | None:
         """What a timer for this step should say, or ``None`` if it has nothing.
@@ -222,7 +268,7 @@ class CookAlong:
     label: str
     scale: float
     resolution: Resolution
-    """Carried so a caller has the yield, the storage, the warnings and the
+    """Carried so a caller has the yield, the storage, the findings and the
     whole ingredient list without resolving anything a second time."""
     plan: Plan
     steps: list[CookStep] = field(default_factory=list)
@@ -280,6 +326,40 @@ class CookAlong:
             CursorStep(cursor=index, of=total, recipe_id=rid, label=label, step=step)
             for index, (rid, label, step) in enumerate(entries)
         ]
+
+    def locate(
+        self,
+        recipe_id: str | None,
+        step_id: str,
+        *,
+        include_optional: bool = True,
+    ) -> CursorStep | None:
+        """Where one step sits now, addressed the way this format addresses things.
+
+        The counterpart to ``at``, and the one a *saved* position should use. An
+        index is `#step-3` — the thing this project refuses to write anywhere
+        else, because it stops meaning what it meant the moment a step is
+        inserted above it. For a cook-along the insertion need not even be in the
+        recipe being cooked: the cake's walk is its own eighteen steps followed
+        by the buttercream's three, so adding a step to the *buttercream* renumbers
+        the cake from index 18 on, and a cook holding index 20 is silently moved.
+
+        ``recipe_id`` is required alongside because a step id is unique in a
+        recipe and not in a dish — the cake and its buttercream both have an
+        ``#add-sugar``, which is the same reason the sensor's state cannot be a
+        step id. ``None`` matches the first recipe carrying the step, which is
+        what a caller with only half the pair can honestly ask for.
+
+        Ids are compared bare or fully qualified, matching ``step`` above and
+        ``graph.py``'s rule that a reference means the same thing either way.
+        """
+        short = fragment(step_id)
+        for entry in self.sequence(include_optional=include_optional):
+            if entry.step.step_id not in (step_id, short):
+                continue
+            if recipe_id is None or entry.recipe_id == recipe_id:
+                return entry
+        return None
 
     def at(self, cursor: int, *, include_optional: bool = True) -> CursorStep | None:
         """The step at ``cursor``, or ``None`` when the cursor is off the end.

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vitest/globals"],
+    // Lit's reactive properties are accessors on the prototype. Class fields
+    // that *define* rather than assign would shadow them and the element would
+    // never re-render, which is why this is off and the target stays ES2021.
+    "useDefineForClassFields": false
+  },
+  "include": ["src", "test", "vite.config.ts"]
+}
